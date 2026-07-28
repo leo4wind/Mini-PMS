@@ -1,0 +1,14 @@
+server:
+  addr: ":8088"
+  mode: debug
+
+mysql:
+  dsn: "root:1234@tcp(127.0.0.1:3306)/minipms?charset=utf8mb4&parseTime=True&loc=Local"
+
+jwt:
+  secret: "minipms-dev-secret-change-me"
+  expireHours: 72
+
+upload:
+  dir: "./uploads"
+  maxSizeMB: 20
