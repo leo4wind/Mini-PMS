@@ -181,7 +181,7 @@ async function loadUsers() {
     label: `${u.realname || u.account} (${u.account})`,
     value: String(u.id),
   }))
-  assigneeOptions.value = [{ label: '指派给我', value: String(auth.user?.id || '') }, ...opts]
+  assigneeOptions.value = [{ label: '指派给我', value: 'me' }, ...opts]
 }
 
 function onProductChange() {
@@ -253,11 +253,7 @@ onMounted(async () => {
   if (q.sprintId) sprintId.value = Number(q.sprintId)
   if (q.storyId) storyId.value = Number(q.storyId)
   if (q.status) status.value = String(q.status)
-  if (q.assignedTo === 'me' && auth.user?.id) {
-    assignedTo.value = String(auth.user.id)
-  } else if (q.assignedTo) {
-    assignedTo.value = String(q.assignedTo)
-  }
+  if (q.assignedTo) assignedTo.value = String(q.assignedTo)
   await Promise.all([loadProducts(), loadUsers()])
   await loadProjects()
   await loadSprints()

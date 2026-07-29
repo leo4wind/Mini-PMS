@@ -54,7 +54,7 @@ mysql -uroot -p1234 < schema.sql
 
 3. 默认账号：
    - 账号：`admin`
-   - 密码：`password`（schema 占位哈希；生产务必修改）
+   - 密码：`123456`（schema 占位哈希；生产务必修改）
 
 生成新密码哈希：
 

@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"time"
 
 	"minipms/internal/model"
 
@@ -31,55 +32,73 @@ func (s *SprintService) List(page, pageSize int, projectID, productID uint64, st
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
-	countQ := s.db.Table("sprint sp").
-		Joins("JOIN project proj ON proj.id = sp.project_id AND proj.deleted = 0").
-		Where("sp.deleted = 0")
-	if projectID > 0 {
-		countQ = countQ.Where("sp.project_id = ?", projectID)
-	}
-	if productID > 0 {
-		countQ = countQ.Where("proj.product_id = ?", productID)
-	}
-	if status != "" {
-		countQ = countQ.Where("sp.status = ?", status)
-	}
-	var total int64
-	if err := countQ.Count(&total).Error; err != nil {
-		return nil, err
-	}
 
 	type row struct {
-		model.Sprint
-		ProjectName string `gorm:"column:project_name"`
-		ProductID   uint64 `gorm:"column:product_id"`
-		ProductName string `gorm:"column:product_name"`
-		StoryCount  int64  `gorm:"column:story_count"`
-	}
-	dataQ := s.db.Table("sprint sp").
-		Select(`sp.*, proj.name AS project_name, proj.product_id AS product_id, prod.name AS product_name,
-			(SELECT COUNT(*) FROM sprint_story ss WHERE ss.sprint_id = sp.id) AS story_count`).
-		Joins("JOIN project proj ON proj.id = sp.project_id AND proj.deleted = 0").
-		Joins("LEFT JOIN product prod ON prod.id = proj.product_id").
-		Where("sp.deleted = 0")
-	if projectID > 0 {
-		dataQ = dataQ.Where("sp.project_id = ?", projectID)
-	}
-	if productID > 0 {
-		dataQ = dataQ.Where("proj.product_id = ?", productID)
-	}
-	if status != "" {
-		dataQ = dataQ.Where("sp.status = ?", status)
+		ID           uint64     `gorm:"column:id"`
+		ProjectID    uint64     `gorm:"column:project_id"`
+		Name         string     `gorm:"column:name"`
+		Status       string     `gorm:"column:status"`
+		Begin        *time.Time `gorm:"column:begin"`
+		End          *time.Time `gorm:"column:end"`
+		Goal         *string    `gorm:"column:goal"`
+		CreatedAt    time.Time  `gorm:"column:created_at"`
+		UpdatedAt    time.Time  `gorm:"column:updated_at"`
+		Deleted      uint8      `gorm:"column:deleted"`
+		ProjectName  string     `gorm:"column:project_name"`
+		ProductIDCol uint64     `gorm:"column:product_id"`
+		ProductName  string     `gorm:"column:product_name"`
+		StoryCount   int64      `gorm:"column:story_count"`
+		Total        int64      `gorm:"column:total_count"`
 	}
 
+	where := "sp.deleted = 0"
+	args := make([]interface{}, 0, 8)
+	if projectID > 0 {
+		where += " AND sp.project_id = ?"
+		args = append(args, projectID)
+	}
+	if productID > 0 {
+		where += " AND proj.product_id = ?"
+		args = append(args, productID)
+	}
+	if status != "" {
+		where += " AND sp.status = ?"
+		args = append(args, status)
+	}
+
+	sql := `SELECT sp.*, proj.name AS project_name, proj.product_id AS product_id, prod.name AS product_name,
+			COALESCE(sc.story_count, 0) AS story_count,
+			COUNT(*) OVER() AS total_count
+		FROM sprint sp
+		JOIN project proj ON proj.id = sp.project_id AND proj.deleted = 0
+		LEFT JOIN product prod ON prod.id = proj.product_id
+		LEFT JOIN (
+			SELECT sprint_id, COUNT(*) AS story_count
+			FROM sprint_story
+			GROUP BY sprint_id
+		) sc ON sc.sprint_id = sp.id
+		WHERE ` + where + `
+		ORDER BY sp.id DESC
+		LIMIT ? OFFSET ?`
+	args = append(args, pageSize, (page-1)*pageSize)
+
 	var rows []row
-	if err := dataQ.Order("sp.id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Scan(&rows).Error; err != nil {
+	if err := s.db.Raw(sql, args...).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
+
+	var total int64
 	vos := make([]SprintVO, 0, len(rows))
 	for _, r := range rows {
+		total = r.Total
+		sp := model.Sprint{
+			ID: r.ID, ProjectID: r.ProjectID, Name: r.Name, Status: r.Status,
+			Begin: r.Begin, End: r.End, Goal: r.Goal,
+			CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, Deleted: r.Deleted,
+		}
 		vos = append(vos, SprintVO{
-			Sprint: r.Sprint, ProjectName: r.ProjectName,
-			ProductID: r.ProductID, ProductName: r.ProductName, StoryCount: r.StoryCount,
+			Sprint: sp, ProjectName: r.ProjectName,
+			ProductID: r.ProductIDCol, ProductName: r.ProductName, StoryCount: r.StoryCount,
 		})
 	}
 	return &PageResult{List: vos, Page: page, PageSize: pageSize, Total: total}, nil

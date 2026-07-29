@@ -5,23 +5,6 @@
       <n-button v-if="auth.has('sprint.create')" type="primary" @click="goCreate">新建迭代</n-button>
     </n-space>
     <n-space>
-      <n-select
-        v-model:value="productId"
-        :options="productOptions"
-        clearable
-        filterable
-        placeholder="所属产品"
-        style="width: 200px"
-        @update:value="onProductChange"
-      />
-      <n-select
-        v-model:value="projectId"
-        :options="projectOptions"
-        clearable
-        filterable
-        placeholder="所属项目"
-        style="width: 200px"
-      />
       <n-select v-model:value="status" :options="statusOptions" clearable placeholder="状态" style="width: 140px" />
       <n-button @click="load">查询</n-button>
     </n-space>
@@ -30,11 +13,11 @@
 </template>
 
 <script setup lang="ts">
-import { h, onMounted, reactive, ref, watch } from 'vue'
+import { h, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NButton, NSpace, useDialog, useMessage } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import { listSprints, deleteSprint, listProducts, listProjects } from '@/api'
+import { listSprints, deleteSprint } from '@/api'
 import { sprintStatusMap } from '@/constants/labels'
 import { useAuthStore } from '@/stores/auth'
 
@@ -49,8 +32,6 @@ const loading = ref(false)
 const productId = ref<number | null>(null)
 const projectId = ref<number | null>(null)
 const status = ref<string | null>(null)
-const productOptions = ref<{ label: string; value: number }[]>([])
-const projectOptions = ref<{ label: string; value: number }[]>([])
 const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0 })
 
 const statusOptions = Object.entries(sprintStatusMap).map(([value, label]) => ({ label, value }))
@@ -92,36 +73,6 @@ const columns: DataTableColumns<any> = [
 function goCreate() {
   const q = projectId.value ? `?projectId=${projectId.value}` : ''
   router.push(`/sprints/new${q}`)
-}
-
-async function loadProducts() {
-  try {
-    const res: any = await listProducts({ page: 1, pageSize: 100, status: 'normal' })
-    productOptions.value = (res.data.list || []).map((p: any) => ({ label: p.name, value: p.id }))
-  } catch {
-    /* ignore */
-  }
-}
-
-async function loadProjects() {
-  try {
-    const res: any = await listProjects({
-      page: 1,
-      pageSize: 100,
-      productId: productId.value || undefined,
-    })
-    projectOptions.value = (res.data.list || []).map((p: any) => ({ label: p.name, value: p.id }))
-    if (projectId.value && !projectOptions.value.find((o) => o.value === projectId.value)) {
-      projectId.value = null
-    }
-  } catch {
-    /* ignore */
-  }
-}
-
-function onProductChange() {
-  projectId.value = null
-  loadProjects()
 }
 
 async function load() {
@@ -166,17 +117,12 @@ function onDelete(row: any) {
   })
 }
 
-watch(projectId, () => {
-  pagination.page = 1
-})
-
-onMounted(async () => {
+onMounted(() => {
+  // 从项目/产品详情等入口带入 query，走 WHERE 筛选
   const q = route.query
   if (q.productId) productId.value = Number(q.productId)
   if (q.projectId) projectId.value = Number(q.projectId)
   if (q.status) status.value = String(q.status)
-  await loadProducts()
-  await loadProjects()
   load()
 })
 </script>

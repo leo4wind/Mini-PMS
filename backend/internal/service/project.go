@@ -37,56 +37,78 @@ func (s *ProjectService) List(page, pageSize int, productID uint64, status, keyw
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
-	countQ := s.db.Table("project p").Where("p.deleted = 0")
-	if productID > 0 {
-		countQ = countQ.Where("p.product_id = ?", productID)
-	}
-	if status != "" {
-		countQ = countQ.Where("p.status = ?", status)
-	}
-	if keyword != "" {
-		like := "%" + keyword + "%"
-		countQ = countQ.Where("p.name LIKE ? OR p.code LIKE ?", like, like)
-	}
-	var total int64
-	if err := countQ.Count(&total).Error; err != nil {
-		return nil, err
-	}
 
 	type row struct {
-		model.Project
-		ProductName   string  `gorm:"column:product_name"`
-		PMAccount     *string `gorm:"column:pm_account"`
-		PMRealname    *string `gorm:"column:pm_realname"`
-		SprintCount   int64   `gorm:"column:sprint_count"`
-	}
-	dataQ := s.db.Table("project p").
-		Select(`p.*, prod.name AS product_name,
-			pm.account AS pm_account, pm.realname AS pm_realname,
-			(SELECT COUNT(*) FROM sprint s WHERE s.project_id = p.id AND s.deleted = 0) AS sprint_count`).
-		Joins("LEFT JOIN product prod ON prod.id = p.product_id").
-		Joins("LEFT JOIN `user` pm ON pm.id = p.pm AND pm.deleted = 0").
-		Where("p.deleted = 0")
-	if productID > 0 {
-		dataQ = dataQ.Where("p.product_id = ?", productID)
-	}
-	if status != "" {
-		dataQ = dataQ.Where("p.status = ?", status)
-	}
-	if keyword != "" {
-		like := "%" + keyword + "%"
-		dataQ = dataQ.Where("p.name LIKE ? OR p.code LIKE ?", like, like)
+		ID          uint64     `gorm:"column:id"`
+		ProductID   uint64     `gorm:"column:product_id"`
+		Name        string     `gorm:"column:name"`
+		Code        *string    `gorm:"column:code"`
+		Status      string     `gorm:"column:status"`
+		Begin       *time.Time `gorm:"column:begin"`
+		End         *time.Time `gorm:"column:end"`
+		PM          *uint64    `gorm:"column:pm"`
+		Description *string    `gorm:"column:description"`
+		CreatedBy   uint64     `gorm:"column:created_by"`
+		CreatedAt   time.Time  `gorm:"column:created_at"`
+		UpdatedAt   time.Time  `gorm:"column:updated_at"`
+		Deleted     uint8      `gorm:"column:deleted"`
+		ProductName string     `gorm:"column:product_name"`
+		PMAccount   *string    `gorm:"column:pm_account"`
+		PMRealname  *string    `gorm:"column:pm_realname"`
+		SprintCount int64      `gorm:"column:sprint_count"`
+		Total       int64      `gorm:"column:total_count"`
 	}
 
+	where := "p.deleted = 0"
+	args := make([]interface{}, 0, 8)
+	if productID > 0 {
+		where += " AND p.product_id = ?"
+		args = append(args, productID)
+	}
+	if status != "" {
+		where += " AND p.status = ?"
+		args = append(args, status)
+	}
+	if keyword != "" {
+		where += " AND (p.name LIKE ? OR p.code LIKE ?)"
+		like := "%" + keyword + "%"
+		args = append(args, like, like)
+	}
+
+	sql := `SELECT p.*, prod.name AS product_name,
+			pm.account AS pm_account, pm.realname AS pm_realname,
+			COALESCE(sc.sprint_count, 0) AS sprint_count,
+			COUNT(*) OVER() AS total_count
+		FROM project p
+		LEFT JOIN product prod ON prod.id = p.product_id
+		LEFT JOIN ` + "`user`" + ` pm ON pm.id = p.pm AND pm.deleted = 0
+		LEFT JOIN (
+			SELECT project_id, COUNT(*) AS sprint_count
+			FROM sprint WHERE deleted = 0
+			GROUP BY project_id
+		) sc ON sc.project_id = p.id
+		WHERE ` + where + `
+		ORDER BY p.id DESC
+		LIMIT ? OFFSET ?`
+	args = append(args, pageSize, (page-1)*pageSize)
+
 	var rows []row
-	if err := dataQ.Order("p.id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Scan(&rows).Error; err != nil {
+	if err := s.db.Raw(sql, args...).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
+
+	var total int64
 	vos := make([]ProjectVO, 0, len(rows))
 	for _, r := range rows {
-		vo := ProjectVO{Project: r.Project, ProductName: r.ProductName, SprintCount: r.SprintCount}
-		if r.Project.PM != nil {
-			vo.PMUser = &UserBrief{ID: *r.Project.PM}
+		total = r.Total
+		p := model.Project{
+			ID: r.ID, ProductID: r.ProductID, Name: r.Name, Code: r.Code, Status: r.Status,
+			Begin: r.Begin, End: r.End, PM: r.PM, Description: r.Description,
+			CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, Deleted: r.Deleted,
+		}
+		vo := ProjectVO{Project: p, ProductName: r.ProductName, SprintCount: r.SprintCount}
+		if r.PM != nil {
+			vo.PMUser = &UserBrief{ID: *r.PM}
 			if r.PMAccount != nil {
 				vo.PMUser.Account = *r.PMAccount
 			}

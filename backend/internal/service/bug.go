@@ -34,39 +34,6 @@ func (s *BugService) List(page, pageSize int, productID, projectID, sprintID, st
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
-	countQ := s.db.Table("bug b").Where("b.deleted = 0")
-	if productID > 0 {
-		countQ = countQ.Where("b.product_id = ?", productID)
-	}
-	if projectID > 0 {
-		countQ = countQ.Where("b.project_id = ?", projectID)
-	}
-	if sprintID > 0 {
-		countQ = countQ.Where("b.sprint_id = ?", sprintID)
-	}
-	if storyID > 0 {
-		countQ = countQ.Where("b.story_id = ?", storyID)
-	}
-	if status != "" {
-		countQ = countQ.Where("b.status = ?", status)
-	}
-	if severity != "" {
-		countQ = countQ.Where("b.severity = ?", severity)
-	}
-	if pri != "" {
-		countQ = countQ.Where("b.pri = ?", pri)
-	}
-	if assignedTo != "" {
-		countQ = countQ.Where("b.assigned_to = ?", assignedTo)
-	}
-	if keyword != "" {
-		like := "%" + keyword + "%"
-		countQ = countQ.Where("b.title LIKE ? OR b.steps LIKE ?", like, like)
-	}
-	var total int64
-	if err := countQ.Count(&total).Error; err != nil {
-		return nil, err
-	}
 
 	type row struct {
 		model.Bug
@@ -74,49 +41,76 @@ func (s *BugService) List(page, pageSize int, productID, projectID, sprintID, st
 		AssigneeAccount *string `gorm:"column:assignee_account"`
 		AssigneeName    *string `gorm:"column:assignee_name"`
 		AttachCount     int64   `gorm:"column:attach_count"`
-	}
-	dataQ := s.db.Table("bug b").
-		Select(`b.*, prod.name AS product_name,
-			au.account AS assignee_account, au.realname AS assignee_name,
-			(SELECT COUNT(*) FROM attachment a WHERE a.object_type = 'bug' AND a.object_id = b.id AND a.deleted = 0) AS attach_count`).
-		Joins("LEFT JOIN product prod ON prod.id = b.product_id").
-		Joins("LEFT JOIN `user` au ON au.id = b.assigned_to AND au.deleted = 0").
-		Where("b.deleted = 0")
-	if productID > 0 {
-		dataQ = dataQ.Where("b.product_id = ?", productID)
-	}
-	if projectID > 0 {
-		dataQ = dataQ.Where("b.project_id = ?", projectID)
-	}
-	if sprintID > 0 {
-		dataQ = dataQ.Where("b.sprint_id = ?", sprintID)
-	}
-	if storyID > 0 {
-		dataQ = dataQ.Where("b.story_id = ?", storyID)
-	}
-	if status != "" {
-		dataQ = dataQ.Where("b.status = ?", status)
-	}
-	if severity != "" {
-		dataQ = dataQ.Where("b.severity = ?", severity)
-	}
-	if pri != "" {
-		dataQ = dataQ.Where("b.pri = ?", pri)
-	}
-	if assignedTo != "" {
-		dataQ = dataQ.Where("b.assigned_to = ?", assignedTo)
-	}
-	if keyword != "" {
-		like := "%" + keyword + "%"
-		dataQ = dataQ.Where("b.title LIKE ? OR b.steps LIKE ?", like, like)
+		Total           int64   `gorm:"column:total_count"`
 	}
 
+	where := "b.deleted = 0"
+	args := make([]interface{}, 0, 16)
+	if productID > 0 {
+		where += " AND b.product_id = ?"
+		args = append(args, productID)
+	}
+	if projectID > 0 {
+		where += " AND b.project_id = ?"
+		args = append(args, projectID)
+	}
+	if sprintID > 0 {
+		where += " AND b.sprint_id = ?"
+		args = append(args, sprintID)
+	}
+	if storyID > 0 {
+		where += " AND b.story_id = ?"
+		args = append(args, storyID)
+	}
+	if status != "" {
+		where += " AND b.status = ?"
+		args = append(args, status)
+	}
+	if severity != "" {
+		where += " AND b.severity = ?"
+		args = append(args, severity)
+	}
+	if pri != "" {
+		where += " AND b.pri = ?"
+		args = append(args, pri)
+	}
+	if assignedTo != "" {
+		where += " AND b.assigned_to = ?"
+		args = append(args, assignedTo)
+	}
+	if keyword != "" {
+		where += " AND (b.title LIKE ? OR b.steps LIKE ?)"
+		like := "%" + keyword + "%"
+		args = append(args, like, like)
+	}
+
+	sql := `SELECT b.*, prod.name AS product_name,
+			au.account AS assignee_account, au.realname AS assignee_name,
+			COALESCE(ac.attach_count, 0) AS attach_count,
+			COUNT(*) OVER() AS total_count
+		FROM bug b
+		LEFT JOIN product prod ON prod.id = b.product_id
+		LEFT JOIN ` + "`user`" + ` au ON au.id = b.assigned_to AND au.deleted = 0
+		LEFT JOIN (
+			SELECT object_id, COUNT(*) AS attach_count
+			FROM attachment
+			WHERE object_type = 'bug' AND deleted = 0
+			GROUP BY object_id
+		) ac ON ac.object_id = b.id
+		WHERE ` + where + `
+		ORDER BY b.id DESC
+		LIMIT ? OFFSET ?`
+	args = append(args, pageSize, (page-1)*pageSize)
+
 	var rows []row
-	if err := dataQ.Order("b.id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Scan(&rows).Error; err != nil {
+	if err := s.db.Raw(sql, args...).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
+
+	var total int64
 	vos := make([]BugVO, 0, len(rows))
 	for _, r := range rows {
+		total = r.Total
 		vo := BugVO{Bug: r.Bug, ProductName: r.ProductName, AttachCount: r.AttachCount}
 		if r.Bug.AssignedTo != nil {
 			vo.Assignee = &UserBrief{ID: *r.Bug.AssignedTo}

@@ -54,7 +54,7 @@ func main() {
 		panic(err)
 	}
 
-	hash := mustHash("password")
+	hash := mustHash("123456")
 	now := time.Now()
 
 	users := []model.User{
@@ -301,7 +301,7 @@ func main() {
 	}
 
 	printCount(db)
-	fmt.Println("demo seed ok. 账号密码均为 password（admin / zhangsan 等）")
+	fmt.Println("demo seed ok. 账号密码均为 123456（admin / zhangsan 等）")
 }
 
 func printCount(db *gorm.DB) {

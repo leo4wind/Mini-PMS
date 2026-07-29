@@ -6,7 +6,7 @@
           <n-input v-model:value="account" placeholder="admin" />
         </n-form-item>
         <n-form-item label="密码">
-          <n-input v-model:value="password" type="password" show-password-on="click" placeholder="password" />
+          <n-input v-model:value="password" type="password" show-password-on="click" placeholder="123456" />
         </n-form-item>
         <n-button type="primary" attr-type="submit" block :loading="loading">登录</n-button>
       </n-form>
@@ -21,7 +21,7 @@ import { useMessage } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
 
 const account = ref('admin')
-const password = ref('password')
+const password = ref('123456')
 const loading = ref(false)
 const auth = useAuthStore()
 const router = useRouter()

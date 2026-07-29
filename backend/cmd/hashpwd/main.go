@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	pwd := "password"
+	pwd := "123456"
 	if len(os.Args) > 1 {
 		pwd = os.Args[1]
 	}

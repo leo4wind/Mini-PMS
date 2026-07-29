@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"minipms/internal/model"
 
@@ -112,9 +113,11 @@ func (s *SystemService) GetUser(id uint64) (*UserVO, error) {
 	return &UserVO{User: u, Roles: roles}, nil
 }
 
+const DefaultUserPassword = "123456"
+
 type CreateUserInput struct {
 	Account  string   `json:"account" binding:"required"`
-	Password string   `json:"password" binding:"required,min=6"`
+	Password string   `json:"password"` // 空则使用 DefaultUserPassword
 	Realname string   `json:"realname" binding:"required"`
 	Email    *string  `json:"email"`
 	RoleIDs  []uint64 `json:"roleIds"`
@@ -126,7 +129,14 @@ func (s *SystemService) CreateUser(in CreateUserInput) (*UserVO, error) {
 	if cnt > 0 {
 		return nil, fmt.Errorf("账号已存在")
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(in.Password), bcrypt.DefaultCost)
+	pwd := strings.TrimSpace(in.Password)
+	if pwd == "" {
+		pwd = DefaultUserPassword
+	}
+	if len(pwd) < 6 {
+		return nil, fmt.Errorf("密码至少 6 位")
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(pwd), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
 	}

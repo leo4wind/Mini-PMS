@@ -5,14 +5,6 @@
       <n-button v-if="auth.has('project.create')" type="primary" @click="goCreate">新建项目</n-button>
     </n-space>
     <n-space>
-      <n-select
-        v-model:value="productId"
-        :options="productOptions"
-        clearable
-        filterable
-        placeholder="所属产品"
-        style="width: 200px"
-      />
       <n-select v-model:value="status" :options="statusOptions" clearable placeholder="状态" style="width: 140px" />
       <n-input v-model:value="keyword" placeholder="搜索名称/代号" style="width: 220px" clearable />
       <n-button @click="load">查询</n-button>
@@ -26,7 +18,7 @@ import { h, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NButton, NSpace, useMessage } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import { listProjects, deleteProject, listProducts } from '@/api'
+import { listProjects, deleteProject } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
@@ -38,7 +30,6 @@ const loading = ref(false)
 const productId = ref<number | null>(null)
 const status = ref<string | null>(null)
 const keyword = ref('')
-const productOptions = ref<{ label: string; value: number }[]>([])
 const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0 })
 
 const statusMap: Record<string, string> = {
@@ -94,15 +85,6 @@ function goCreate() {
   router.push(`/projects/new${q}`)
 }
 
-async function loadProducts() {
-  try {
-    const res: any = await listProducts({ page: 1, pageSize: 100, status: 'normal' })
-    productOptions.value = (res.data.list || []).map((p: any) => ({ label: p.name, value: p.id }))
-  } catch {
-    /* ignore */
-  }
-}
-
 async function load() {
   loading.value = true
   try {
@@ -137,10 +119,10 @@ async function onDelete(row: any) {
   }
 }
 
-onMounted(async () => {
+onMounted(() => {
+  // 从产品详情等入口带入 ?productId=，走 WHERE 筛选
   const q = route.query.productId
   if (q) productId.value = Number(q)
-  await loadProducts()
   load()
 })
 </script>

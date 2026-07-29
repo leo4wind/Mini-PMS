@@ -17,7 +17,7 @@
           <n-input v-model:value="form.account" />
         </n-form-item>
         <n-form-item label="密码" v-if="!editing">
-          <n-input v-model:value="form.password" type="password" show-password-on="click" />
+          <n-input v-model:value="form.password" type="password" show-password-on="click" placeholder="默认 123456" />
         </n-form-item>
         <n-form-item label="姓名">
           <n-input v-model:value="form.realname" />
@@ -158,7 +158,7 @@ function openCreate() {
   editing.value = false
   editId.value = null
   form.account = ''
-  form.password = ''
+  form.password = '123456'
   form.realname = ''
   form.email = ''
   form.roleIds = []

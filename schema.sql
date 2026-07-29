@@ -398,8 +398,8 @@ INSERT INTO `role_menu` (`role_id`, `menu_id`) VALUES
   (3, 4), (3, 30),
   (3, 150), (3, 151), (3, 152), (3, 153), (3, 154), (3, 155);
 
--- admin user (placeholder hash for plaintext "password" — change before production)
+-- admin user (bcrypt for plaintext "123456" — change before production)
 INSERT INTO `user` (`id`, `account`, `password_hash`, `realname`, `email`, `status`) VALUES
-  (1, 'admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '系统管理员', 'admin@example.com', 'active');
+  (1, 'admin', '$2a$10$9UU2gagnUPdEwmeJLuUpmeDhDWaKX8dyPW5WLCs58yuKHAEZP32JC', '系统管理员', 'admin@example.com', 'active');
 
 INSERT INTO `user_role` (`user_id`, `role_id`) VALUES (1, 4);

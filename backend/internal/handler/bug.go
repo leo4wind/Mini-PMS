@@ -30,13 +30,17 @@ func parseUintQuery(c *gin.Context, key string) uint64 {
 func (h *BugHandler) List(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+	assignedTo := c.Query("assignedTo")
+	if assignedTo == "me" {
+		assignedTo = strconv.FormatUint(middleware.UserID(c), 10)
+	}
 	res, err := h.svc.List(page, pageSize,
 		parseUintQuery(c, "productId"),
 		parseUintQuery(c, "projectId"),
 		parseUintQuery(c, "sprintId"),
 		parseUintQuery(c, "storyId"),
 		c.Query("status"), c.Query("severity"), c.Query("pri"),
-		c.Query("assignedTo"), c.Query("keyword"))
+		assignedTo, c.Query("keyword"))
 	if err != nil {
 		response.Fail(c, 500, 50000, err.Error())
 		return
