@@ -55,9 +55,12 @@
       @update:sorter="onSorterUpdate"
     />
 
-    <EntityDrawer :show="drawerOpen" :title="title" :width="width" @update:show="onUpdateShow">
-      <router-view />
+    <EntityDrawer :show="detailOpen" :title="title" :width="width" @update:show="onUpdateShow">
+      <router-view v-if="detailOpen" />
     </EntityDrawer>
+    <EntityModal :show="formOpen" :title="title" @update:show="onUpdateShow">
+      <router-view v-if="formOpen" />
+    </EntityModal>
   </n-space>
 </template>
 
@@ -70,6 +73,7 @@ import { listBugs, deleteBug, listProjects, listSprints, listStories, listUsers 
 import { bugStatusMap } from '@/constants/labels'
 import { useAuthStore } from '@/stores/auth'
 import EntityDrawer from '@/components/EntityDrawer.vue'
+import EntityModal from '@/components/EntityModal.vue'
 import ProductFilterSelect from '@/components/ProductFilterSelect.vue'
 import { provideListReload, useRouteDrawer } from '@/composables/useRouteDrawer'
 import { useListProductFilter } from '@/composables/useListProductFilter'
@@ -90,6 +94,9 @@ const { drawerOpen, width, title, onUpdateShow } = useRouteDrawer({
     'bug-edit': '编辑缺陷',
   },
 })
+
+const formOpen = computed(() => drawerOpen.value && ['bug-new', 'bug-edit'].includes(String(route.name)))
+const detailOpen = computed(() => drawerOpen.value && route.name === 'bug-detail')
 
 const list = ref<any[]>([])
 const loading = ref(false)
@@ -163,9 +170,6 @@ const columns = computed<DataTableColumns<any>>(() => [
       return h(NSpace, null, {
         default: () => [
           h(NButton, { text: true, type: 'primary', onClick: () => router.push(`/bugs/${row.id}`) }, { default: () => '查看' }),
-          auth.has('bug.edit')
-            ? h(NButton, { text: true, onClick: () => router.push(`/bugs/${row.id}/edit`) }, { default: () => '编辑' })
-            : null,
           auth.has('bug.delete') && row.status === 'active'
             ? h(NButton, { text: true, type: 'error', onClick: () => onDelete(row) }, { default: () => '删除' })
             : null,

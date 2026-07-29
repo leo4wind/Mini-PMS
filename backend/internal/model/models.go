@@ -151,30 +151,43 @@ type SprintStory struct {
 func (SprintStory) TableName() string { return "sprint_story" }
 
 type Bug struct {
-	ID         uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
-	ProductID  uint64    `gorm:"not null;index" json:"productId"`
-	ProjectID  *uint64   `json:"projectId"`
-	SprintID   *uint64   `json:"sprintId"`
-	StoryID    *uint64   `json:"storyId"`
-	Title      string    `gorm:"size:255;not null" json:"title"`
-	Steps      *string   `gorm:"type:text" json:"steps"`
-	Severity   uint8     `gorm:"not null;default:3" json:"severity"`
-	Pri        uint8     `gorm:"not null;default:3" json:"pri"`
-	Status     string    `gorm:"type:enum('active','resolved','closed');not null;default:active" json:"status"`
-	Resolution *string   `json:"resolution"`
-	AssignedTo *uint64   `json:"assignedTo"`
-	OpenedBy   uint64    `gorm:"not null" json:"openedBy"`
-	ResolvedBy *uint64   `json:"resolvedBy"`
-	CreatedAt  time.Time `json:"createdAt"`
-	UpdatedAt  time.Time `json:"updatedAt"`
-	Deleted    uint8     `gorm:"not null;default:0" json:"-"`
+	ID             uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
+	ProductID      uint64    `gorm:"not null;index" json:"productId"`
+	ProjectID      *uint64   `json:"projectId"`
+	SprintID       *uint64   `json:"sprintId"`
+	StoryID        *uint64   `json:"storyId"`
+	Title          string    `gorm:"size:255;not null" json:"title"`
+	Steps          *string   `gorm:"type:mediumtext" json:"steps"`
+	Severity       uint8     `gorm:"not null;default:3" json:"severity"`
+	Pri            uint8     `gorm:"not null;default:3" json:"pri"`
+	Status         string    `gorm:"type:enum('active','resolved','closed');not null;default:active" json:"status"`
+	Resolution     *string   `json:"resolution"`
+	ResolveComment *string   `gorm:"type:mediumtext" json:"resolveComment"`
+	AssignedTo     *uint64   `json:"assignedTo"`
+	OpenedBy       uint64    `gorm:"not null" json:"openedBy"`
+	ResolvedBy     *uint64   `json:"resolvedBy"`
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+	Deleted        uint8     `gorm:"not null;default:0" json:"-"`
 }
 
 func (Bug) TableName() string { return "bug" }
 
+type BugRemark struct {
+	ID        uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
+	BugID     uint64    `gorm:"not null;index" json:"bugId"`
+	Content   *string   `gorm:"type:mediumtext" json:"content"`
+	Finalized uint8     `gorm:"not null;default:0" json:"finalized"`
+	CreatedBy uint64    `gorm:"not null" json:"createdBy"`
+	CreatedAt time.Time `json:"createdAt"`
+	Deleted   uint8     `gorm:"not null;default:0" json:"-"`
+}
+
+func (BugRemark) TableName() string { return "bug_remark" }
+
 type Attachment struct {
 	ID           uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
-	ObjectType   string    `gorm:"type:enum('story','bug','story_remark');not null;index:idx_attachment_object" json:"objectType"`
+	ObjectType   string    `gorm:"type:enum('story','bug','story_remark','bug_remark');not null;index:idx_attachment_object" json:"objectType"`
 	ObjectID     uint64    `gorm:"not null;index:idx_attachment_object" json:"objectId"`
 	OriginalName string    `gorm:"size:255;not null" json:"originalName"`
 	StoredName   string    `gorm:"size:255;uniqueIndex;not null" json:"-"`

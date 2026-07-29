@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"html"
 	"slices"
 	"strings"
 
@@ -11,6 +12,15 @@ import (
 )
 
 var validBugResolutions = []string{"fixed", "duplicate", "willnotfix", "external", "bydesign", "notrepro"}
+
+var bugResolutionLabels = map[string]string{
+	"fixed":       "已修复",
+	"duplicate":   "重复",
+	"willnotfix": "不予解决",
+	"external":    "外部原因",
+	"bydesign":    "设计如此",
+	"notrepro":    "无法重现",
+}
 
 type BugService struct {
 	db *gorm.DB
@@ -296,58 +306,19 @@ func (s *BugService) Update(id uint64, in UpdateBugInput) (*BugVO, error) {
 	if err := s.db.Where("id = ? AND deleted = 0", id).First(&b).Error; err != nil {
 		return nil, fmt.Errorf("缺陷不存在")
 	}
-	updates := map[string]interface{}{}
-	if in.Title != nil {
-		updates["title"] = *in.Title
+
+	// 创建后正文锁定；仅允许「步骤仍为空」时回写一次（新建后 flush 图片/视频）
+	hasLockedChange := in.Title != nil || in.Severity != nil || in.Pri != nil ||
+		in.ClearAssign || in.AssignedTo != nil || in.ProjectID != nil || in.SprintID != nil ||
+		in.StoryID != nil || (in.Status != nil)
+	if hasLockedChange {
+		return nil, fmt.Errorf("缺陷创建后不可编辑正文，请追加备注")
 	}
 	if in.Steps != nil {
-		updates["steps"] = *in.Steps
-	}
-	if in.Severity != nil {
-		updates["severity"] = *in.Severity
-	}
-	if in.Pri != nil {
-		updates["pri"] = *in.Pri
-	}
-	if in.ClearAssign {
-		updates["assigned_to"] = nil
-	} else if in.AssignedTo != nil {
-		updates["assigned_to"] = *in.AssignedTo
-	}
-
-	newProjectID := b.ProjectID
-	newSprintID := b.SprintID
-	newStoryID := b.StoryID
-	if in.ProjectID != nil {
-		newProjectID = in.ProjectID
-	}
-	if in.SprintID != nil {
-		newSprintID = in.SprintID
-	}
-	if in.StoryID != nil {
-		newStoryID = in.StoryID
-	}
-	if in.ProjectID != nil || in.SprintID != nil || in.StoryID != nil {
-		if err := s.validateCascade(b.ProductID, newProjectID, newSprintID, newStoryID); err != nil {
-			return nil, err
+		if b.Steps != nil && strings.TrimSpace(*b.Steps) != "" {
+			return nil, fmt.Errorf("缺陷创建后不可编辑正文，请追加备注")
 		}
-		if in.ProjectID != nil {
-			updates["project_id"] = *in.ProjectID
-		}
-		if in.SprintID != nil {
-			updates["sprint_id"] = *in.SprintID
-		}
-		if in.StoryID != nil {
-			updates["story_id"] = *in.StoryID
-		}
-	}
-	if in.Status != nil && *in.Status == "active" {
-		updates["status"] = "active"
-		updates["resolution"] = nil
-		updates["resolved_by"] = nil
-	}
-	if len(updates) > 0 {
-		if err := s.db.Model(&b).Updates(updates).Error; err != nil {
+		if err := s.db.Model(&b).Update("steps", *in.Steps).Error; err != nil {
 			return nil, err
 		}
 	}
@@ -355,12 +326,14 @@ func (s *BugService) Update(id uint64, in UpdateBugInput) (*BugVO, error) {
 }
 
 type ResolveBugInput struct {
-	Resolution string `json:"resolution" binding:"required"`
+	Resolution     string  `json:"resolution" binding:"required"`
+	ResolveComment *string `json:"resolveComment"`
+	AssignedTo     *uint64 `json:"assignedTo"`
 }
 
-func (s *BugService) Resolve(id, userID uint64, resolution string) (*BugVO, error) {
-	if !slices.Contains(validBugResolutions, resolution) {
-		return nil, fmt.Errorf("无效的解决方案: %s", resolution)
+func (s *BugService) Resolve(id, userID uint64, in ResolveBugInput) (*BugVO, error) {
+	if !slices.Contains(validBugResolutions, in.Resolution) {
+		return nil, fmt.Errorf("无效的解决方案: %s", in.Resolution)
 	}
 	var b model.Bug
 	if err := s.db.Where("id = ? AND deleted = 0", id).First(&b).Error; err != nil {
@@ -369,12 +342,48 @@ func (s *BugService) Resolve(id, userID uint64, resolution string) (*BugVO, erro
 	if b.Status != "active" {
 		return nil, fmt.Errorf("仅 active 缺陷可解决")
 	}
-	updates := map[string]interface{}{
-		"status":     "resolved",
-		"resolution": resolution,
-		"resolved_by": userID,
+	// 默认指派给创建人；也可在解决时改指派给别人
+	assignee := b.OpenedBy
+	if in.AssignedTo != nil && *in.AssignedTo > 0 {
+		assignee = *in.AssignedTo
 	}
-	if err := s.db.Model(&b).Updates(updates).Error; err != nil {
+	label := bugResolutionLabels[in.Resolution]
+	if label == "" {
+		label = in.Resolution
+	}
+	comment := ""
+	if in.ResolveComment != nil {
+		comment = strings.TrimSpace(*in.ResolveComment)
+	}
+	remarkHTML := "<p><strong>解决</strong>：" + html.EscapeString(label) + "</p>"
+	if comment != "" {
+		remarkHTML += "<p>" + html.EscapeString(comment) + "</p>"
+	}
+
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		updates := map[string]interface{}{
+			"status":          "resolved",
+			"resolution":      in.Resolution,
+			"resolved_by":     userID,
+			"assigned_to":     assignee,
+			"resolve_comment": nil,
+		}
+		if comment != "" {
+			updates["resolve_comment"] = comment
+		}
+		if err := tx.Model(&b).Updates(updates).Error; err != nil {
+			return err
+		}
+		// 定稿备注保留历史，激活清空字段后仍可在备注列表查看
+		r := model.BugRemark{
+			BugID:     id,
+			Content:   &remarkHTML,
+			Finalized: 1,
+			CreatedBy: userID,
+		}
+		return tx.Create(&r).Error
+	})
+	if err != nil {
 		return nil, err
 	}
 	return s.Get(id)
@@ -400,9 +409,10 @@ func (s *BugService) Activate(id uint64) (*BugVO, error) {
 		return nil, fmt.Errorf("缺陷不存在")
 	}
 	updates := map[string]interface{}{
-		"status":      "active",
-		"resolution":  nil,
-		"resolved_by": nil,
+		"status":          "active",
+		"resolution":      nil,
+		"resolved_by":     nil,
+		"resolve_comment": nil,
 	}
 	if err := s.db.Model(&b).Updates(updates).Error; err != nil {
 		return nil, err

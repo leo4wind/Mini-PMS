@@ -22,6 +22,7 @@ USE `minipms`;
 DROP TABLE IF EXISTS `role_menu`;
 DROP TABLE IF EXISTS `user_role`;
 DROP TABLE IF EXISTS `attachment`;
+DROP TABLE IF EXISTS `bug_remark`;
 DROP TABLE IF EXISTS `story_remark`;
 DROP TABLE IF EXISTS `sprint_story`;
 DROP TABLE IF EXISTS `bug`;
@@ -259,11 +260,12 @@ CREATE TABLE `bug` (
   `sprint_id`   BIGINT UNSIGNED NULL DEFAULT NULL COMMENT '可选关联迭代',
   `story_id`    BIGINT UNSIGNED NULL DEFAULT NULL COMMENT '可选关联需求',
   `title`       VARCHAR(255) NOT NULL,
-  `steps`       TEXT NULL COMMENT '重现步骤',
+  `steps`       MEDIUMTEXT NULL COMMENT '重现步骤 HTML；图片/视频 src 为 preview 地址',
   `severity`   TINYINT UNSIGNED NOT NULL DEFAULT 3 COMMENT '1最高 4最低',
   `pri`         TINYINT UNSIGNED NOT NULL DEFAULT 3,
   `status`      ENUM('active','resolved','closed') NOT NULL DEFAULT 'active',
   `resolution`  ENUM('fixed','duplicate','willnotfix','external','bydesign','notrepro') NULL DEFAULT NULL,
+  `resolve_comment` MEDIUMTEXT NULL COMMENT '解决备注',
   `assigned_to` BIGINT UNSIGNED NULL DEFAULT NULL,
   `opened_by`   BIGINT UNSIGNED NOT NULL,
   `resolved_by` BIGINT UNSIGNED NULL DEFAULT NULL,
@@ -292,15 +294,32 @@ CREATE TABLE `bug` (
     ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `fk_bug_resolved_by` FOREIGN KEY (`resolved_by`) REFERENCES `user` (`id`)
     ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='缺陷(归属产品；可关联项目/迭代/需求)';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='缺陷(归属产品；创建后正文锁定，追加备注)';
+
+CREATE TABLE `bug_remark` (
+  `id`          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `bug_id`      BIGINT UNSIGNED NOT NULL,
+  `content`     MEDIUMTEXT NULL COMMENT 'finalize 后写入 HTML',
+  `finalized`   TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0=草稿 1=已定稿不可改',
+  `created_by`  BIGINT UNSIGNED NOT NULL,
+  `created_at`  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted`     TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_bug_remark_bug` (`bug_id`),
+  KEY `idx_bug_remark_deleted` (`deleted`),
+  CONSTRAINT `fk_bug_remark_bug` FOREIGN KEY (`bug_id`) REFERENCES `bug` (`id`)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_bug_remark_created_by` FOREIGN KEY (`created_by`) REFERENCES `user` (`id`)
+    ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='缺陷备注(创建后追加，定稿后不可改)';
 
 -- ---------------------------------------------------------------------------
--- Attachment (polymorphic: story / bug)
+-- Attachment (polymorphic: story / bug / remarks)
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE `attachment` (
   `id`             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `object_type`    ENUM('story','bug','story_remark') NOT NULL COMMENT '关联对象类型',
+  `object_type`    ENUM('story','bug','story_remark','bug_remark') NOT NULL COMMENT '关联对象类型',
   `object_id`      BIGINT UNSIGNED NOT NULL COMMENT '关联对象 ID',
   `original_name`  VARCHAR(255) NOT NULL COMMENT '上传时文件名',
   `stored_name`    VARCHAR(255) NOT NULL COMMENT '存储文件名(唯一)',
@@ -319,7 +338,7 @@ CREATE TABLE `attachment` (
   CONSTRAINT `fk_attachment_uploader` FOREIGN KEY (`uploaded_by`) REFERENCES `user` (`id`)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  COMMENT='附件(多态关联 story/bug/story_remark；允许 doc/docx/txt/md/图片)';
+  COMMENT='附件(多态关联 story/bug/story_remark/bug_remark；允许 doc/docx/txt/md/图片/mp4)';
 
 SET FOREIGN_KEY_CHECKS = 1;
 

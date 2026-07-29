@@ -32,15 +32,19 @@ function sanitizeDescriptionHtml(html: string): string {
       el.remove()
       continue
     }
-    if (el.tagName === 'IMG') {
+    if (el.tagName === 'IMG' || el.tagName === 'VIDEO' || el.tagName === 'SOURCE') {
       const src = el.getAttribute('src') || ''
       const ok =
         src.startsWith('data:image/') ||
+        src.startsWith('data:video/') ||
         src.startsWith('https://') ||
         src.startsWith('http://') ||
         src.startsWith('/') ||
         src.startsWith('blob:')
       if (!ok) el.remove()
+      else if (el.tagName === 'VIDEO') {
+        el.setAttribute('controls', 'true')
+      }
     }
     if (el.tagName === 'A') {
       const href = el.getAttribute('href') || ''
@@ -55,7 +59,8 @@ function sanitizeDescriptionHtml(html: string): string {
 .md-empty {
   color: var(--n-text-color-3, #999);
 }
-.desc-html :deep(img) {
+.desc-html :deep(img),
+.desc-html :deep(video) {
   max-width: 100%;
   height: auto;
   display: block;

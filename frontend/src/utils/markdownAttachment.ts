@@ -31,24 +31,24 @@ export function toStoredPreviewUrl(src: string): string {
   return src
 }
 
-export function rewriteHtmlImgSrcs(html: string, mapSrc: (src: string) => string): string {
+export function rewriteHtmlMediaSrcs(html: string, mapSrc: (src: string) => string): string {
   if (!html) return html
   const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html')
   const root = doc.body.firstElementChild
   if (!root) return html
-  root.querySelectorAll('img').forEach((img) => {
-    const src = img.getAttribute('src')
-    if (src) img.setAttribute('src', mapSrc(src))
+  root.querySelectorAll('img, video, source').forEach((el) => {
+    const src = el.getAttribute('src')
+    if (src) el.setAttribute('src', mapSrc(src))
   })
   return root.innerHTML
 }
 
 export function htmlForEditorDisplay(html: string): string {
-  return rewriteHtmlImgSrcs(html, withAuthPreviewUrl)
+  return rewriteHtmlMediaSrcs(html, withAuthPreviewUrl)
 }
 
 export function htmlForStorage(html: string): string {
-  return rewriteHtmlImgSrcs(html, (src) => {
+  return rewriteHtmlMediaSrcs(html, (src) => {
     if (src.startsWith('blob:')) return src
     return toStoredPreviewUrl(src)
   })

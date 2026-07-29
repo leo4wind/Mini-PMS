@@ -164,14 +164,15 @@
 |----|------|------|--------|
 | F-BUG-01 | 列表 | 按产品；可按项目/迭代/需求/状态筛 | `bug.list` |
 | F-BUG-02 | 新建 | **product_id 必填**；project/sprint/story 可选但须一致（sprint∈project，project∈product，story∈product） | `bug.create` |
-| F-BUG-03 | 编辑 | | `bug.edit` |
-| F-BUG-04 | 解决 | →resolved；resolution 必填；resolved_by=当前用户 | `bug.resolve` |
+| F-BUG-03 | 编辑 | **创建后正文不可改**；沟通走备注 | `bug.edit` |
+| F-BUG-04 | 解决 | →resolved；resolution 必填；可填解决备注；可改指派（默认创建人）；resolved_by=当前用户 | `bug.resolve` |
 | F-BUG-05 | 关闭 | resolved→closed | `bug.close` |
-| F-BUG-06 | 激活 | resolved/closed→active | `bug.edit` |
+| F-BUG-06 | 激活 | resolved/closed→active；须填激活说明（文字/截图，写入备注）；清空 resolution/解决备注 | `bug.edit` |
 | F-BUG-07 | 删除 | 软删；**仅 active 可删（4B）**；级联软删其附件 | `bug.delete` |
-| F-BUG-08 | 上传附件 | 见 §9 附件 | `bug.attach` |
-| F-BUG-09 | 删除附件 | 软删 | `bug.attach` |
-| F-BUG-10 | 下载/预览附件 | 有缺陷查看权即可 | `bug.list` |
+| F-BUG-08 | 上传附件 | 仅新建过程中可挂缺陷级附件；之后走备注 | `bug.attach` |
+| F-BUG-09 | 删除附件 | 正文锁定后缺陷级/备注附件均不可删 | `bug.attach` |
+| F-BUG-10 | 下载/预览附件 | 有缺陷查看权即可；图片与 mp4 可预览 | `bug.list` |
+| F-BUG-11 | 追加备注 | TipTap+图/视频/附件；定稿后不可改删 | `bug.edit` / `bug.attach` |
 
 状态机：`active → resolved → closed`（可激活回来）
 
@@ -200,8 +201,9 @@
 | Word | `doc`, `docx` |
 | 文本 | `txt`, `md` |
 | 图片 | `jpg`, `jpeg`, `png`, `gif`, `webp` |
+| 视频 | `mp4` |
 
-其余一律拒绝。单文件大小上限建议 **20MB**（可配置）。
+其余一律拒绝。单文件大小上限建议 **100MB**（可配置，默认见 config）。
 
 ### 9.3 功能与校验
 
@@ -262,7 +264,7 @@
 | F-PROD-06 / R-07 | 新建产品自动创建 `{产品名}1.0` 项目 |
 | 表 `attachment` | 多态挂 story/bug |
 | 权限 | `story.attach` / `bug.attach` |
-| 白名单 | doc/docx/txt/md/jpg/jpeg/png/gif/webp |
+| 白名单 | doc/docx/txt/md/jpg/jpeg/png/gif/webp/mp4 |
 
 配套：`mvp/pages.md`（页面）、`mvp/api.md`（接口）。  
 下一步：选定技术栈并搭建工程。

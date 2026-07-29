@@ -13,20 +13,28 @@
       <button type="button" @click="editor.chain().focus().toggleBulletList().run()">• 列表</button>
       <button type="button" @click="editor.chain().focus().toggleOrderedList().run()">1. 列表</button>
       <button type="button" :disabled="uploading" @click="pickImage">{{ uploading ? '上传中…' : '图片' }}</button>
+      <button v-if="allowVideo" type="button" :disabled="uploading" @click="pickVideo">视频</button>
     </div>
     <editor-content :editor="editor" class="desc-content" />
-    <input ref="fileInput" type="file" accept="image/*" multiple hidden @change="onFilePick" />
+    <input ref="imageInput" type="file" accept="image/*" multiple hidden @change="onImagePick" />
+    <input ref="videoInput" type="file" accept="video/mp4,.mp4" hidden @change="onVideoPick" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from 'vue'
+import { Node, mergeAttributes } from '@tiptap/core'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import { useMessage } from 'naive-ui'
-import { uploadStoryAttachment, uploadStoryRemarkAttachment } from '@/api'
+import {
+  uploadStoryAttachment,
+  uploadStoryRemarkAttachment,
+  uploadBugAttachment,
+  uploadBugRemarkAttachment,
+} from '@/api'
 import {
   attachmentPreviewPath,
   htmlForEditorDisplay,
@@ -34,24 +42,60 @@ import {
   withAuthPreviewUrl,
 } from '@/utils/markdownAttachment'
 
+export type EditorObjectType = 'story' | 'bug'
+
+const Video = Node.create({
+  name: 'video',
+  group: 'block',
+  atom: true,
+  draggable: true,
+  addAttributes() {
+    return {
+      src: { default: null },
+      controls: { default: true },
+    }
+  },
+  parseHTML() {
+    return [{ tag: 'video' }]
+  },
+  renderHTML({ HTMLAttributes }) {
+    return [
+      'video',
+      mergeAttributes(HTMLAttributes, {
+        controls: 'true',
+        style: 'max-width:100%;display:block;margin:8px 0;',
+      }),
+    ]
+  },
+})
+
 const props = withDefaults(
   defineProps<{
     modelValue?: string | null
+    /** story / bug 主体；与 remarkId 组合决定上传目标 */
+    objectType?: EditorObjectType
+    objectId?: number | string | null
+    /** @deprecated 用 objectType=story + objectId */
     storyId?: number | string | null
-    /** 备注图片上传目标；有值时优先于 story 级上传 */
     remarkId?: number | string | null
     canUpload?: boolean
+    allowVideo?: boolean
     height?: string
     maxImageMB?: number
+    maxVideoMB?: number
     placeholder?: string
   }>(),
   {
     modelValue: '',
+    objectType: 'story',
+    objectId: null,
     storyId: null,
     remarkId: null,
     canUpload: false,
+    allowVideo: false,
     height: '300px',
     maxImageMB: 5,
+    maxVideoMB: 100,
     placeholder: '填写内容，可直接粘贴图片（将上传到服务器）…',
   },
 )
@@ -61,11 +105,33 @@ const emit = defineEmits<{
 }>()
 
 const message = useMessage()
-const fileInput = ref<HTMLInputElement | null>(null)
+const imageInput = ref<HTMLInputElement | null>(null)
+const videoInput = ref<HTMLInputElement | null>(null)
 const uploading = ref(false)
-/** create 时 blob: → File，保存后再上传 */
 const pendingByBlob = new Map<string, File>()
 let syncing = false
+
+function resolvedObjectId() {
+  if (props.objectId != null && props.objectId !== '') return props.objectId
+  if (props.storyId != null && props.storyId !== '') return props.storyId
+  return null
+}
+
+async function uploadFile(file: File, objectId: number | string, remarkId?: number | string | null) {
+  const formData = new FormData()
+  formData.append('file', file)
+  const type = props.objectType
+  if (remarkId != null && remarkId !== '') {
+    if (type === 'bug') {
+      return uploadBugRemarkAttachment(objectId, remarkId, formData)
+    }
+    return uploadStoryRemarkAttachment(objectId, remarkId, formData)
+  }
+  if (type === 'bug') {
+    return uploadBugAttachment(objectId, formData)
+  }
+  return uploadStoryAttachment(objectId, formData)
+}
 
 function emitStorageHtml() {
   if (!editor.value) return
@@ -80,6 +146,7 @@ async function insertImageFiles(files: FileList | File[]) {
   }
   const list = Array.from(files)
   const maxBytes = props.maxImageMB * 1024 * 1024
+  const oid = resolvedObjectId()
   uploading.value = true
   try {
     for (const file of list) {
@@ -91,23 +158,9 @@ async function insertImageFiles(files: FileList | File[]) {
         message.warning(`图片过大（>${props.maxImageMB}MB）：${file.name}`)
         continue
       }
-
-      if (props.remarkId != null && props.remarkId !== '' && props.storyId != null && props.storyId !== '') {
+      if (oid != null) {
         try {
-          const formData = new FormData()
-          formData.append('file', file)
-          const res: any = await uploadStoryRemarkAttachment(props.storyId, props.remarkId, formData)
-          const stored = attachmentPreviewPath(res.data.id)
-          const display = withAuthPreviewUrl(stored)
-          editor.value?.chain().focus().setImage({ src: display }).run()
-        } catch (e: any) {
-          message.error(e.message || '图片上传失败')
-        }
-      } else if (props.storyId != null && props.storyId !== '' && (props.remarkId == null || props.remarkId === '')) {
-        try {
-          const formData = new FormData()
-          formData.append('file', file)
-          const res: any = await uploadStoryAttachment(props.storyId, formData)
+          const res: any = await uploadFile(file, oid, props.remarkId)
           const stored = attachmentPreviewPath(res.data.id)
           const display = withAuthPreviewUrl(stored)
           editor.value?.chain().focus().setImage({ src: display }).run()
@@ -125,6 +178,40 @@ async function insertImageFiles(files: FileList | File[]) {
   }
 }
 
+async function insertVideoFile(file: File) {
+  if (!props.canUpload) {
+    message.warning('无上传附件权限，无法插入视频')
+    return
+  }
+  if (!file.name.toLowerCase().endsWith('.mp4') && file.type !== 'video/mp4') {
+    message.warning('仅支持 mp4 视频')
+    return
+  }
+  const maxBytes = props.maxVideoMB * 1024 * 1024
+  if (file.size > maxBytes) {
+    message.warning(`视频过大（>${props.maxVideoMB}MB）`)
+    return
+  }
+  const oid = resolvedObjectId()
+  uploading.value = true
+  try {
+    if (oid != null) {
+      const res: any = await uploadFile(file, oid, props.remarkId)
+      const stored = attachmentPreviewPath(res.data.id)
+      const display = withAuthPreviewUrl(stored)
+      editor.value?.chain().focus().insertContent({ type: 'video', attrs: { src: display, controls: true } }).run()
+    } else {
+      const blobUrl = URL.createObjectURL(file)
+      pendingByBlob.set(blobUrl, file)
+      editor.value?.chain().focus().insertContent({ type: 'video', attrs: { src: blobUrl, controls: true } }).run()
+    }
+  } catch (e: any) {
+    message.error(e.message || '视频上传失败')
+  } finally {
+    uploading.value = false
+  }
+}
+
 const editor = useEditor({
   extensions: [
     StarterKit,
@@ -132,6 +219,7 @@ const editor = useEditor({
       allowBase64: false,
       inline: false,
     }),
+    Video,
     Placeholder.configure({
       placeholder: props.placeholder,
     }),
@@ -186,18 +274,26 @@ watch(
 )
 
 function pickImage() {
-  fileInput.value?.click()
+  imageInput.value?.click()
+}
+function pickVideo() {
+  videoInput.value?.click()
 }
 
-function onFilePick(e: Event) {
+function onImagePick(e: Event) {
   const input = e.target as HTMLInputElement
   if (input.files?.length) void insertImageFiles(input.files)
   input.value = ''
 }
+function onVideoPick(e: Event) {
+  const input = e.target as HTMLInputElement
+  if (input.files?.[0]) void insertVideoFile(input.files[0])
+  input.value = ''
+}
 
-/** 把 blob: 换成服务端预览地址；remarkId 有值则挂到备注 */
+/** 把 blob: 换成服务端预览地址 */
 async function flushPending(
-  storyId: number | string,
+  objectId: number | string,
   html: string,
   remarkId?: number | string | null,
 ): Promise<string> {
@@ -205,12 +301,7 @@ async function flushPending(
   let result = html
   for (const [blobUrl, file] of pendingByBlob) {
     if (!result.includes(blobUrl)) continue
-    const formData = new FormData()
-    formData.append('file', file)
-    const res: any =
-      remarkId != null && remarkId !== ''
-        ? await uploadStoryRemarkAttachment(storyId, remarkId, formData)
-        : await uploadStoryAttachment(storyId, formData)
+    const res: any = await uploadFile(file, objectId, remarkId)
     const stored = attachmentPreviewPath(res.data.id)
     result = result.split(blobUrl).join(stored)
     URL.revokeObjectURL(blobUrl)
@@ -278,7 +369,8 @@ defineExpose({ flushPending, hasPending })
 .desc-content :deep(.desc-prose p) {
   margin: 0.4em 0;
 }
-.desc-content :deep(.desc-prose img) {
+.desc-content :deep(.desc-prose img),
+.desc-content :deep(.desc-prose video) {
   max-width: 100%;
   height: auto;
   display: block;

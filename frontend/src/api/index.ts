@@ -94,13 +94,32 @@ export const createBug = (data: Record<string, unknown>) => http.post('/bugs', d
 export const getBug = (id: number | string) => http.get(`/bugs/${id}`)
 export const updateBug = (id: number | string, data: Record<string, unknown>) =>
   http.put(`/bugs/${id}`, data)
-export const resolveBug = (id: number | string, resolution: string) =>
-  http.post(`/bugs/${id}/resolve`, { resolution })
+export const resolveBug = (
+  id: number | string,
+  data: { resolution: string; resolveComment?: string | null; assignedTo?: number | null },
+) => http.post(`/bugs/${id}/resolve`, data)
 export const closeBug = (id: number | string) => http.post(`/bugs/${id}/close`)
 export const activateBug = (id: number | string) => http.post(`/bugs/${id}/activate`)
 export const deleteBug = (id: number | string) => http.delete(`/bugs/${id}`)
 export const uploadBugAttachment = (id: number | string, formData: FormData) =>
   http.post(`/bugs/${id}/attachments`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+export const listBugRemarks = (bugId: number | string) => http.get(`/bugs/${bugId}/remarks`)
+export const createBugRemarkDraft = (bugId: number | string) => http.post(`/bugs/${bugId}/remarks`)
+export const finalizeBugRemark = (
+  bugId: number | string,
+  remarkId: number | string,
+  data: { content: string },
+) => http.post(`/bugs/${bugId}/remarks/${remarkId}/finalize`, data)
+export const discardBugRemarkDraft = (bugId: number | string, remarkId: number | string) =>
+  http.delete(`/bugs/${bugId}/remarks/${remarkId}`)
+export const uploadBugRemarkAttachment = (
+  bugId: number | string,
+  remarkId: number | string,
+  formData: FormData,
+) =>
+  http.post(`/bugs/${bugId}/remarks/${remarkId}/attachments`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
 

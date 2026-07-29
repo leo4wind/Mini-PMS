@@ -17,9 +17,11 @@ import (
 	"gorm.io/gorm"
 )
 
-var allowedExts = []string{"doc", "docx", "txt", "md", "jpg", "jpeg", "png", "gif", "webp"}
+var allowedExts = []string{"doc", "docx", "txt", "md", "jpg", "jpeg", "png", "gif", "webp", "mp4"}
 
 var imageExts = []string{"jpg", "jpeg", "png", "gif", "webp"}
+
+var previewableExts = []string{"jpg", "jpeg", "png", "gif", "webp", "mp4"}
 
 type AttachmentService struct {
 	db        *gorm.DB
@@ -54,8 +56,13 @@ func (s *AttachmentService) UploadForStory(storyID, userID uint64, fileHeader *m
 }
 
 func (s *AttachmentService) UploadForBug(bugID, userID uint64, fileHeader *multipart.FileHeader) (*AttachmentVO, error) {
-	if _, err := NewBugService(s.db).Exists(bugID); err != nil {
+	b, err := NewBugService(s.db).Exists(bugID)
+	if err != nil {
 		return nil, err
+	}
+	// 正文已写入后不可再挂缺陷级附件，请走备注
+	if b.Steps != nil && strings.TrimSpace(*b.Steps) != "" {
+		return nil, fmt.Errorf("缺陷正文已锁定，请追加备注")
 	}
 	return s.doUpload("bug", bugID, userID, fileHeader)
 }
@@ -71,12 +78,23 @@ func (s *AttachmentService) UploadForStoryRemark(storyID, remarkID, userID uint6
 	return s.doUpload("story_remark", remarkID, userID, fileHeader)
 }
 
+func (s *AttachmentService) UploadForBugRemark(bugID, remarkID, userID uint64, fileHeader *multipart.FileHeader) (*AttachmentVO, error) {
+	r, err := NewBugRemarkService(s.db).GetOwned(bugID, remarkID)
+	if err != nil {
+		return nil, err
+	}
+	if r.Finalized == 1 {
+		return nil, fmt.Errorf("备注已定稿，不可再上传附件")
+	}
+	return s.doUpload("bug_remark", remarkID, userID, fileHeader)
+}
+
 func (s *AttachmentService) Delete(id uint64) error {
 	att, err := s.Get(id)
 	if err != nil {
 		return err
 	}
-	if att.ObjectType == "story_remark" {
+	if att.ObjectType == "story_remark" || att.ObjectType == "bug_remark" {
 		return fmt.Errorf("备注附件不可删除")
 	}
 	// 可交付需求的需求级附件也不允许删
@@ -84,6 +102,12 @@ func (s *AttachmentService) Delete(id uint64) error {
 		st, err := NewStoryService(s.db).Exists(att.ObjectID)
 		if err == nil && st.Type == "story" {
 			return fmt.Errorf("可交付需求附件不可删除")
+		}
+	}
+	if att.ObjectType == "bug" {
+		b, err := NewBugService(s.db).Exists(att.ObjectID)
+		if err == nil && b.Steps != nil && strings.TrimSpace(*b.Steps) != "" {
+			return fmt.Errorf("缺陷附件不可删除")
 		}
 	}
 	res := s.db.Model(&model.Attachment{}).Where("id = ? AND deleted = 0", id).Update("deleted", 1)
@@ -186,4 +210,8 @@ func (s *AttachmentService) AbsPath(att *model.Attachment) string {
 
 func (s *AttachmentService) IsImage(ext string) bool {
 	return slices.Contains(imageExts, strings.ToLower(ext))
+}
+
+func (s *AttachmentService) IsPreviewable(ext string) bool {
+	return slices.Contains(previewableExts, strings.ToLower(ext))
 }

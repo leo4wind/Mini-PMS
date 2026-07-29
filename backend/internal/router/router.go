@@ -24,6 +24,7 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 	storyRemarkSvc := service.NewStoryRemarkService(db)
 	sprintSvc := service.NewSprintService(db)
 	bugSvc := service.NewBugService(db)
+	bugRemarkSvc := service.NewBugRemarkService(db)
 	attachmentSvc := service.NewAttachmentService(db, cfg.Upload)
 	dashboardSvc := service.NewDashboardService(db)
 
@@ -35,6 +36,7 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 	storyRemarkH := handler.NewStoryRemarkHandler(storyRemarkSvc)
 	sprintH := handler.NewSprintHandler(sprintSvc)
 	bugH := handler.NewBugHandler(bugSvc)
+	bugRemarkH := handler.NewBugRemarkHandler(bugRemarkSvc)
 	attachmentH := handler.NewAttachmentHandler(attachmentSvc, permSvc)
 	dashboardH := handler.NewDashboardHandler(dashboardSvc)
 
@@ -102,6 +104,11 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 			authed.POST("/bugs/:id/activate", middleware.RequirePerm(permSvc, "bug.edit"), bugH.Activate)
 			authed.DELETE("/bugs/:id", middleware.RequirePerm(permSvc, "bug.delete"), bugH.Delete)
 			authed.POST("/bugs/:id/attachments", middleware.RequirePerm(permSvc, "bug.attach"), attachmentH.UploadBug)
+			authed.GET("/bugs/:id/remarks", middleware.RequirePerm(permSvc, "bug.list"), bugRemarkH.List)
+			authed.POST("/bugs/:id/remarks", middleware.RequirePerm(permSvc, "bug.edit"), bugRemarkH.CreateDraft)
+			authed.POST("/bugs/:id/remarks/:remarkId/finalize", middleware.RequirePerm(permSvc, "bug.edit"), bugRemarkH.Finalize)
+			authed.DELETE("/bugs/:id/remarks/:remarkId", middleware.RequirePerm(permSvc, "bug.edit"), bugRemarkH.DiscardDraft)
+			authed.POST("/bugs/:id/remarks/:remarkId/attachments", middleware.RequirePerm(permSvc, "bug.attach"), attachmentH.UploadBugRemark)
 
 			// attachments
 			authed.GET("/attachments/:id/download", attachmentH.Download)

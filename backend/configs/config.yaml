@@ -16,4 +16,4 @@ jwt:
 
 upload:
   dir: "./uploads"
-  maxSizeMB: 20
+  maxSizeMB: 100

@@ -476,20 +476,23 @@ Body: `productId*`, `title*`, `steps?`, `severity?`, `pri?`, `projectId?`, `spri
 ### PUT `/bugs/:id`
 
 `bug.edit`  
-可改标题步骤严重程度优先级关联指派；激活时清 resolution
+创建后正文锁定；仅当 `steps` 仍为空时可回写一次步骤（新建 flush 用）；其它字段 → 42208
 
 ### POST `/bugs/:id/resolve`
 
 `bug.resolve`  
-Body: `{ "resolution": "fixed" }` → status=resolved
+Body: `{ "resolution": "fixed", "resolveComment"?: string, "assignedTo"?: number }`  
+→ status=resolved；默认 `assignedTo=openedBy`（可改派）；写入 resolveComment（最新值）  
+同时追加一条已定稿备注（含解决方案+备注），激活清空字段后历史仍可在备注列表查看
 
 ### POST `/bugs/:id/close`
 
-`bug.close` → closed（建议仅 resolved 可关，否则 42201）
+`bug.close` → closed（仅 resolved 可关，否则 42201）
 
 ### POST `/bugs/:id/activate`
 
-`bug.edit` → active，清空 resolution/resolvedBy
+`bug.edit` → active，清空 resolution/resolvedBy/resolveComment  
+前端激活前会先追加一条备注（文字/截图）
 
 ### DELETE `/bugs/:id`
 
@@ -498,7 +501,27 @@ Body: `{ "resolution": "fixed" }` → status=resolved
 ### POST `/bugs/:id/attachments`
 
 `bug.attach`  
-同 story 上传
+仅当 steps 仍为空（新建过程）；正文锁定后 → 42208；允许 mp4
+
+### GET `/bugs/:id/remarks`
+
+`bug.list` — 已定稿备注列表
+
+### POST `/bugs/:id/remarks`
+
+`bug.edit` — 创建未定稿草稿
+
+### POST `/bugs/:id/remarks/:remarkId/finalize`
+
+`bug.edit` — Body `{ content }`；仅一次
+
+### DELETE `/bugs/:id/remarks/:remarkId`
+
+`bug.edit` — 仅未定稿可软删
+
+### POST `/bugs/:id/remarks/:remarkId/attachments`
+
+`bug.attach` — 挂到备注；定稿后不可传；备注附件不可删
 
 ---
 
@@ -559,7 +582,7 @@ Body: `{ "resolution": "fixed" }` → status=resolved
 | 需求列表/详情 | `GET/POST/PUT/DELETE /stories`, attachments, remarks |
 | 项目 | `CRUD /projects` |
 | 迭代详情+关联 | `CRUD /sprints`, `POST/DELETE .../stories`, `.../story-candidates` |
-| 缺陷 | `CRUD /bugs` + resolve/close/activate + attachments |
+| 缺陷 | `CRUD /bugs` + resolve/close/activate + attachments + remarks |
 | 用户角色菜单 | `/users`, `/roles`, `/menus` |
 
 ---

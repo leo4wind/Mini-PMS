@@ -81,6 +81,10 @@ func (h *BugHandler) Update(c *gin.Context) {
 	}
 	res, err := h.svc.Update(id, in)
 	if err != nil {
+		if strings.Contains(err.Error(), "不可编辑") {
+			response.FailCode(c, 42208, err.Error())
+			return
+		}
 		response.BadRequest(c, err.Error())
 		return
 	}
@@ -94,7 +98,7 @@ func (h *BugHandler) Resolve(c *gin.Context) {
 		response.BadRequest(c, "参数错误")
 		return
 	}
-	res, err := h.svc.Resolve(id, middleware.UserID(c), in.Resolution)
+	res, err := h.svc.Resolve(id, middleware.UserID(c), in)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return

@@ -58,6 +58,10 @@ func (h *AttachmentHandler) UploadBug(c *gin.Context) {
 			response.FailCode(c, 42206, err.Error())
 			return
 		}
+		if strings.Contains(err.Error(), "已锁定") {
+			response.FailCode(c, 42208, err.Error())
+			return
+		}
 		response.BadRequest(c, err.Error())
 		return
 	}
@@ -88,12 +92,38 @@ func (h *AttachmentHandler) UploadStoryRemark(c *gin.Context) {
 	response.OK(c, res)
 }
 
+func (h *AttachmentHandler) UploadBugRemark(c *gin.Context) {
+	bugID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	remarkID, _ := strconv.ParseUint(c.Param("remarkId"), 10, 64)
+	file, err := c.FormFile("file")
+	if err != nil {
+		response.BadRequest(c, "请选择文件")
+		return
+	}
+	res, err := h.svc.UploadForBugRemark(bugID, remarkID, middleware.UserID(c), file)
+	if err != nil {
+		if strings.Contains(err.Error(), "不支持") || strings.Contains(err.Error(), "超过限制") {
+			response.FailCode(c, 42206, err.Error())
+			return
+		}
+		if strings.Contains(err.Error(), "已定稿") {
+			response.FailCode(c, 42208, err.Error())
+			return
+		}
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.OK(c, res)
+}
+
 func (h *AttachmentHandler) checkListPerm(c *gin.Context, objectType string) bool {
 	code := "story.list"
-	if objectType == "bug" {
+	switch objectType {
+	case "bug", "bug_remark":
 		code = "bug.list"
+	case "story", "story_remark":
+		code = "story.list"
 	}
-	// story_remark 与 story 同权
 	ok, err := h.perms.HasCode(middleware.UserID(c), code)
 	if err != nil || !ok {
 		response.Forbidden(c, "无权限")
@@ -131,8 +161,8 @@ func (h *AttachmentHandler) Preview(c *gin.Context) {
 	if !h.checkListPerm(c, att.ObjectType) {
 		return
 	}
-	if !h.svc.IsImage(att.Ext) {
-		response.BadRequest(c, "仅图片可预览")
+	if !h.svc.IsPreviewable(att.Ext) {
+		response.BadRequest(c, "仅图片或视频可预览")
 		return
 	}
 	absPath := h.svc.AbsPath(att)
@@ -140,9 +170,14 @@ func (h *AttachmentHandler) Preview(c *gin.Context) {
 		response.NotFound(c, "文件不存在")
 		return
 	}
-	mime := "image/" + att.Ext
-	if att.Ext == "jpg" {
+	mime := "application/octet-stream"
+	switch att.Ext {
+	case "jpg", "jpeg":
 		mime = "image/jpeg"
+	case "png", "gif", "webp":
+		mime = "image/" + att.Ext
+	case "mp4":
+		mime = "video/mp4"
 	}
 	if att.MimeType != nil && *att.MimeType != "" {
 		mime = *att.MimeType
@@ -160,8 +195,11 @@ func (h *AttachmentHandler) Delete(c *gin.Context) {
 		return
 	}
 	code := "story.attach"
-	if att.ObjectType == "bug" {
+	if att.ObjectType == "bug" || att.ObjectType == "bug_remark" {
 		code = "bug.attach"
+	}
+	if att.ObjectType == "story_remark" {
+		code = "story.attach"
 	}
 	ok, err := h.perms.HasCode(middleware.UserID(c), code)
 	if err != nil || !ok {
