@@ -5,6 +5,7 @@
       <n-button v-if="auth.has('project.create')" type="primary" @click="goCreate">新建项目</n-button>
     </n-space>
     <n-space>
+      <ProductFilterSelect :model-value="productId" @update:model-value="onProductChange" />
       <n-select v-model:value="status" :options="statusOptions" clearable placeholder="状态" style="width: 140px" />
       <n-input v-model:value="keyword" placeholder="搜索名称/代号" style="width: 220px" clearable />
       <n-button @click="load">查询</n-button>
@@ -19,18 +20,20 @@
 
 <script setup lang="ts">
 import { h, onMounted, reactive, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { NButton, NSpace, useMessage } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { listProjects, deleteProject } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import EntityDrawer from '@/components/EntityDrawer.vue'
+import ProductFilterSelect from '@/components/ProductFilterSelect.vue'
 import { provideListReload, useRouteDrawer } from '@/composables/useRouteDrawer'
+import { useListProductFilter } from '@/composables/useListProductFilter'
 
 const auth = useAuthStore()
-const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const { productId, initFromRouteAndStore, setProductId } = useListProductFilter()
 const { drawerOpen, width, title, onUpdateShow } = useRouteDrawer({
   listPath: '/projects',
   drawerNames: ['project-new', 'project-detail', 'project-edit'],
@@ -44,7 +47,6 @@ const { drawerOpen, width, title, onUpdateShow } = useRouteDrawer({
 })
 const list = ref<any[]>([])
 const loading = ref(false)
-const productId = ref<number | null>(null)
 const status = ref<string | null>(null)
 const keyword = ref('')
 const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0 })
@@ -74,6 +76,12 @@ const columns: DataTableColumns<any> = [
     width: 100,
     render: (r) => (r.pmUser ? r.pmUser.realname || r.pmUser.account : '-'),
   },
+  {
+    title: '创建人',
+    key: 'creator',
+    width: 100,
+    render: (r) => (r.creator ? r.creator.realname || r.creator.account : '-'),
+  },
   { title: '开始', key: 'begin', width: 110, render: (r) => fmtDate(r.begin) },
   { title: '结束', key: 'end', width: 110, render: (r) => fmtDate(r.end) },
   { title: '迭代数', key: 'sprintCount', width: 80 },
@@ -100,6 +108,12 @@ const columns: DataTableColumns<any> = [
 function goCreate() {
   const q = productId.value ? `?productId=${productId.value}` : ''
   router.push(`/projects/new${q}`)
+}
+
+function onProductChange(id: number | null) {
+  setProductId(id)
+  pagination.page = 1
+  load()
 }
 
 async function load() {
@@ -139,9 +153,7 @@ async function onDelete(row: any) {
 }
 
 onMounted(() => {
-  // 从产品详情等入口带入 ?productId=，走 WHERE 筛选
-  const q = route.query.productId
-  if (q) productId.value = Number(q)
+  initFromRouteAndStore()
   load()
 })
 </script>

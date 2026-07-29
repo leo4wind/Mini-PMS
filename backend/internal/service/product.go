@@ -25,6 +25,11 @@ type PageResult struct {
 	Meta     interface{} `json:"meta,omitempty"`
 }
 
+type ProductVO struct {
+	model.Product
+	Creator *UserBrief `json:"creator,omitempty"`
+}
+
 func (s *ProductService) List(page, pageSize int, status, keyword string) (*PageResult, error) {
 	if page < 1 {
 		page = 1
@@ -32,21 +37,56 @@ func (s *ProductService) List(page, pageSize int, status, keyword string) (*Page
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
-	q := s.db.Model(&model.Product{}).Where("deleted = 0")
+
+	type row struct {
+		model.Product
+		CreatorAccount *string `gorm:"column:creator_account"`
+		CreatorName    *string `gorm:"column:creator_name"`
+		Total          int64   `gorm:"column:total_count"`
+	}
+
+	where := "p.deleted = 0"
+	args := make([]interface{}, 0, 8)
 	if status != "" {
-		q = q.Where("status = ?", status)
+		where += " AND p.status = ?"
+		args = append(args, status)
 	}
 	if keyword != "" {
+		where += " AND (p.name LIKE ? OR p.code LIKE ?)"
 		like := "%" + keyword + "%"
-		q = q.Where("name LIKE ? OR code LIKE ?", like, like)
+		args = append(args, like, like)
 	}
-	var total int64
-	if err := q.Count(&total).Error; err != nil {
+
+	sql := `SELECT p.*,
+			cu.account AS creator_account, cu.realname AS creator_name,
+			COUNT(*) OVER() AS total_count
+		FROM product p
+		LEFT JOIN ` + "`user`" + ` cu ON cu.id = p.created_by AND cu.deleted = 0
+		WHERE ` + where + `
+		ORDER BY p.id DESC
+		LIMIT ? OFFSET ?`
+	args = append(args, pageSize, (page-1)*pageSize)
+
+	var rows []row
+	if err := s.db.Raw(sql, args...).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
-	var list []model.Product
-	err := q.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error
-	return &PageResult{List: list, Page: page, PageSize: pageSize, Total: total}, err
+
+	var total int64
+	list := make([]ProductVO, 0, len(rows))
+	for _, r := range rows {
+		total = r.Total
+		vo := ProductVO{Product: r.Product}
+		vo.Creator = &UserBrief{ID: r.Product.CreatedBy}
+		if r.CreatorAccount != nil {
+			vo.Creator.Account = *r.CreatorAccount
+		}
+		if r.CreatorName != nil {
+			vo.Creator.Realname = *r.CreatorName
+		}
+		list = append(list, vo)
+	}
+	return &PageResult{List: list, Page: page, PageSize: pageSize, Total: total}, nil
 }
 
 type CreateProductInput struct {

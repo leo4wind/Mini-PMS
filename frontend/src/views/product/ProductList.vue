@@ -58,6 +58,12 @@ const columns: DataTableColumns<any> = [
   { title: '名称', key: 'name' },
   { title: '代号', key: 'code' },
   { title: '状态', key: 'status', width: 100 },
+  {
+    title: '创建人',
+    key: 'creator',
+    width: 100,
+    render: (r) => (r.creator ? r.creator.realname || r.creator.account : '-'),
+  },
   { title: '创建时间', key: 'createdAt', width: 180 },
   {
     title: '操作',

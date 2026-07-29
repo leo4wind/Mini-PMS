@@ -2,10 +2,11 @@
   <n-space vertical>
     <n-space justify="space-between">
       <n-h2 style="margin: 0">需求列表</n-h2>
-      <n-button v-if="auth.has('story.create')" type="primary" @click="$router.push('/stories/new')">新建需求</n-button>
+      <n-button v-if="auth.has('story.create')" type="primary" @click="goCreate">新建需求</n-button>
     </n-space>
 
     <n-space>
+      <ProductFilterSelect :model-value="productId" @update:model-value="onProductChange" />
       <n-select v-model:value="type" :options="typeOptions" clearable placeholder="类型" style="width: 120px" />
       <n-select v-model:value="status" :options="statusOptions" clearable placeholder="状态" style="width: 120px" />
       <n-input v-model:value="keyword" placeholder="搜索标题" style="width: 220px" clearable />
@@ -36,13 +37,16 @@ import { listStories, deleteStory } from '@/api'
 import { storyTypeMap, storyStatusMap } from '@/constants/labels'
 import { useAuthStore } from '@/stores/auth'
 import EntityDrawer from '@/components/EntityDrawer.vue'
+import ProductFilterSelect from '@/components/ProductFilterSelect.vue'
 import { provideListReload, useRouteDrawer } from '@/composables/useRouteDrawer'
+import { useListProductFilter } from '@/composables/useListProductFilter'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const dialog = useDialog()
+const { productId, initFromRouteAndStore, setProductId } = useListProductFilter()
 const { drawerOpen, width, title, onUpdateShow } = useRouteDrawer({
   listPath: '/stories',
   drawerNames: ['story-new', 'story-detail', 'story-edit'],
@@ -69,6 +73,11 @@ function renderUser(u: any) {
   return u.realname || u.account || '-'
 }
 
+function fmtDate(v: string | null | undefined) {
+  if (!v) return '-'
+  return String(v).slice(0, 10)
+}
+
 const columns: DataTableColumns<any> = [
   { title: 'ID', key: 'id', width: 70 },
   { title: '标题', key: 'title', ellipsis: { tooltip: true } },
@@ -78,8 +87,9 @@ const columns: DataTableColumns<any> = [
   { title: '状态', key: 'status', width: 80, render: (r) => storyStatusMap[r.status] || r.status },
   { title: '估算', key: 'estimate', width: 80, render: (r) => (r.estimate != null ? r.estimate : '-') },
   { title: '指派人', key: 'assignee', width: 100, render: (r) => renderUser(r.assignee) },
+  { title: '创建人', key: 'creator', width: 100, render: (r) => renderUser(r.creator) },
   { title: '附件', key: 'attachCount', width: 70, render: (r) => r.attachCount ?? 0 },
-  { title: '更新时间', key: 'updatedAt', width: 170 },
+  { title: '更新时间', key: 'updatedAt', width: 110, render: (r) => fmtDate(r.updatedAt) },
   {
     title: '操作',
     key: 'actions',
@@ -100,13 +110,24 @@ const columns: DataTableColumns<any> = [
   },
 ]
 
+function goCreate() {
+  const q = productId.value ? `?productId=${productId.value}` : ''
+  router.push(`/stories/new${q}`)
+}
+
+function onProductChange(id: number | null) {
+  setProductId(id)
+  pagination.page = 1
+  load()
+}
+
 async function load() {
   loading.value = true
   try {
     const res: any = await listStories({
       page: pagination.page,
       pageSize: pagination.pageSize,
-      productId: route.query.productId ? Number(route.query.productId) : undefined,
+      productId: productId.value || undefined,
       type: type.value || undefined,
       status: status.value || undefined,
       assignedTo: route.query.assignedTo ? String(route.query.assignedTo) : undefined,
@@ -149,6 +170,7 @@ function onDelete(row: any) {
 onMounted(() => {
   if (route.query.type) type.value = String(route.query.type)
   if (route.query.status) status.value = String(route.query.status)
+  initFromRouteAndStore()
   load()
 })
 </script>

@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"minipms/internal/middleware"
 	"minipms/internal/pkg/response"
 	"minipms/internal/service"
 
@@ -42,7 +43,7 @@ func (h *SprintHandler) Create(c *gin.Context) {
 		response.BadRequest(c, "参数错误")
 		return
 	}
-	res, err := h.svc.Create(in)
+	res, err := h.svc.Create(middleware.UserID(c), in)
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return

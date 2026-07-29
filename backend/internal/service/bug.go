@@ -23,6 +23,7 @@ type BugVO struct {
 	model.Bug
 	ProductName string             `json:"productName,omitempty"`
 	Assignee    *UserBrief         `json:"assignee,omitempty"`
+	Creator     *UserBrief         `json:"creator,omitempty"`
 	AttachCount int64              `json:"attachCount,omitempty"`
 	Attachments []AttachmentBrief  `json:"attachments,omitempty"`
 }
@@ -40,6 +41,8 @@ func (s *BugService) List(page, pageSize int, productID, projectID, sprintID, st
 		ProductName     string  `gorm:"column:product_name"`
 		AssigneeAccount *string `gorm:"column:assignee_account"`
 		AssigneeName    *string `gorm:"column:assignee_name"`
+		CreatorAccount  *string `gorm:"column:creator_account"`
+		CreatorName     *string `gorm:"column:creator_name"`
 		AttachCount     int64   `gorm:"column:attach_count"`
 		Total           int64   `gorm:"column:total_count"`
 	}
@@ -86,11 +89,13 @@ func (s *BugService) List(page, pageSize int, productID, projectID, sprintID, st
 
 	sql := `SELECT b.*, prod.name AS product_name,
 			au.account AS assignee_account, au.realname AS assignee_name,
+			cu.account AS creator_account, cu.realname AS creator_name,
 			COALESCE(ac.attach_count, 0) AS attach_count,
 			COUNT(*) OVER() AS total_count
 		FROM bug b
 		LEFT JOIN product prod ON prod.id = b.product_id
 		LEFT JOIN ` + "`user`" + ` au ON au.id = b.assigned_to AND au.deleted = 0
+		LEFT JOIN ` + "`user`" + ` cu ON cu.id = b.opened_by AND cu.deleted = 0
 		LEFT JOIN (
 			SELECT object_id, COUNT(*) AS attach_count
 			FROM attachment
@@ -121,6 +126,13 @@ func (s *BugService) List(page, pageSize int, productID, projectID, sprintID, st
 				vo.Assignee.Realname = *r.AssigneeName
 			}
 		}
+		vo.Creator = &UserBrief{ID: r.Bug.OpenedBy}
+		if r.CreatorAccount != nil {
+			vo.Creator.Account = *r.CreatorAccount
+		}
+		if r.CreatorName != nil {
+			vo.Creator.Realname = *r.CreatorName
+		}
 		vos = append(vos, vo)
 	}
 	return &PageResult{List: vos, Page: page, PageSize: pageSize, Total: total}, nil
@@ -137,6 +149,12 @@ func (s *BugService) toListVO(b model.Bug) BugVO {
 		if err := s.db.Select("id", "account", "realname").Where("id = ? AND deleted = 0", *b.AssignedTo).First(&u).Error; err == nil {
 			vo.Assignee = &UserBrief{ID: u.ID, Account: u.Account, Realname: u.Realname}
 		}
+	}
+	var cu model.User
+	if err := s.db.Select("id", "account", "realname").Where("id = ? AND deleted = 0", b.OpenedBy).First(&cu).Error; err == nil {
+		vo.Creator = &UserBrief{ID: cu.ID, Account: cu.Account, Realname: cu.Realname}
+	} else {
+		vo.Creator = &UserBrief{ID: b.OpenedBy}
 	}
 	s.db.Model(&model.Attachment{}).Where("object_type = ? AND object_id = ? AND deleted = 0", "bug", b.ID).Count(&vo.AttachCount)
 	return vo

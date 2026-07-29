@@ -49,6 +49,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore, type MenuNode } from '@/stores/auth'
+import { useProductFilterStore } from '@/stores/productFilter'
 
 type NavItem = {
   key: string
@@ -59,6 +60,7 @@ type NavItem = {
 
 const siderWidth = 72
 const auth = useAuthStore()
+const productFilter = useProductFilterStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -133,14 +135,19 @@ function firstLeafPath(item: NavItem): string | null {
   return null
 }
 
+function navigateWithProduct(path: string) {
+  const target = productFilter.withProductQuery(path)
+  router.push(target)
+}
+
 function onTopClick(item: NavItem) {
   const target = firstLeafPath(item)
-  if (target) router.push(target)
+  if (target) navigateWithProduct(target)
 }
 
 function onSecondaryClick(key: string) {
   const m = secondaryMenus.value.find((x) => x.key === key)
-  if (m?.path) router.push(m.path)
+  if (m?.path) navigateWithProduct(m.path)
 }
 
 async function onLogout() {

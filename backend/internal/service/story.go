@@ -21,6 +21,7 @@ type StoryVO struct {
 	model.Story
 	ProductName string             `json:"productName,omitempty"`
 	Assignee    *UserBrief         `json:"assignee,omitempty"`
+	Creator     *UserBrief         `json:"creator,omitempty"`
 	AttachCount int64              `json:"attachCount,omitempty"`
 	Attachments []AttachmentBrief  `json:"attachments,omitempty"`
 	Sprints     []SprintBrief        `json:"sprints,omitempty"`
@@ -54,6 +55,8 @@ func (s *StoryService) List(page, pageSize int, productID uint64, storyType, sta
 		ProductName     string  `gorm:"column:product_name"`
 		AssigneeAccount *string `gorm:"column:assignee_account"`
 		AssigneeName    *string `gorm:"column:assignee_name"`
+		CreatorAccount  *string `gorm:"column:creator_account"`
+		CreatorName     *string `gorm:"column:creator_name"`
 		AttachCount     int64   `gorm:"column:attach_count"`
 		Total           int64   `gorm:"column:total_count"`
 		ProductsJSON    []byte  `gorm:"column:products_json"`
@@ -62,6 +65,7 @@ func (s *StoryService) List(page, pageSize int, productID uint64, storyType, sta
 
 	selectCols := `st.*, prod.name AS product_name,
 			au.account AS assignee_account, au.realname AS assignee_name,
+			cu.account AS creator_account, cu.realname AS creator_name,
 			(SELECT COUNT(*) FROM attachment a WHERE a.object_type = 'story' AND a.object_id = st.id AND a.deleted = 0) AS attach_count,
 			COUNT(*) OVER() AS total_count`
 	if withMeta {
@@ -73,7 +77,8 @@ func (s *StoryService) List(page, pageSize int, productID uint64, storyType, sta
 
 	dataQ := s.db.Table("story st").Select(selectCols).
 		Joins("LEFT JOIN product prod ON prod.id = st.product_id").
-		Joins("LEFT JOIN `user` au ON au.id = st.assigned_to AND au.deleted = 0")
+		Joins("LEFT JOIN `user` au ON au.id = st.assigned_to AND au.deleted = 0").
+		Joins("LEFT JOIN `user` cu ON cu.id = st.opened_by AND cu.deleted = 0")
 	if withMeta {
 		dataQ = dataQ.Joins(`CROSS JOIN (
 			SELECT
@@ -150,6 +155,13 @@ func (s *StoryService) List(page, pageSize int, productID uint64, storyType, sta
 			if r.AssigneeName != nil {
 				vo.Assignee.Realname = *r.AssigneeName
 			}
+		}
+		vo.Creator = &UserBrief{ID: r.Story.OpenedBy}
+		if r.CreatorAccount != nil {
+			vo.Creator.Account = *r.CreatorAccount
+		}
+		if r.CreatorName != nil {
+			vo.Creator.Realname = *r.CreatorName
 		}
 		vos = append(vos, vo)
 	}

@@ -198,6 +198,7 @@ CREATE TABLE `sprint` (
   `begin`      DATE NULL DEFAULT NULL COMMENT '支持3天或2周等任意周期',
   `end`        DATE NULL DEFAULT NULL,
   `goal`       TEXT NULL COMMENT '迭代目标',
+  `created_by` BIGINT UNSIGNED NOT NULL COMMENT '创建人 user_id',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted`    TINYINT UNSIGNED NOT NULL DEFAULT 0,
@@ -206,6 +207,8 @@ CREATE TABLE `sprint` (
   KEY `idx_sprint_status` (`status`),
   KEY `idx_sprint_deleted` (`deleted`),
   CONSTRAINT `fk_sprint_project` FOREIGN KEY (`project_id`) REFERENCES `project` (`id`)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_sprint_created_by` FOREIGN KEY (`created_by`) REFERENCES `user` (`id`)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='迭代(归属项目)';
 

@@ -119,6 +119,7 @@ type Sprint struct {
 	Begin     *time.Time `gorm:"type:date" json:"begin"`
 	End       *time.Time `gorm:"type:date" json:"end"`
 	Goal      *string    `gorm:"type:text" json:"goal"`
+	CreatedBy uint64     `gorm:"not null" json:"createdBy"`
 	CreatedAt time.Time  `json:"createdAt"`
 	UpdatedAt time.Time  `json:"updatedAt"`
 	Deleted   uint8      `gorm:"not null;default:0" json:"-"`

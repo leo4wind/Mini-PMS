@@ -5,15 +5,7 @@
       <n-button v-if="auth.has('bug.create')" type="primary" @click="goCreate">新建缺陷</n-button>
     </n-space>
     <n-space wrap>
-      <n-select
-        v-model:value="productId"
-        :options="productOptions"
-        clearable
-        filterable
-        placeholder="产品"
-        style="width: 180px"
-        @update:value="onProductChange"
-      />
+      <ProductFilterSelect :model-value="productId" @update:model-value="onProductFilterChange" />
       <n-select
         v-model:value="projectId"
         :options="projectOptions"
@@ -66,17 +58,20 @@ import { h, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NButton, NSpace, useDialog, useMessage } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import { listBugs, deleteBug, listProducts, listProjects, listSprints, listStories, listUsers } from '@/api'
+import { listBugs, deleteBug, listProjects, listSprints, listStories, listUsers } from '@/api'
 import { bugStatusMap } from '@/constants/labels'
 import { useAuthStore } from '@/stores/auth'
 import EntityDrawer from '@/components/EntityDrawer.vue'
+import ProductFilterSelect from '@/components/ProductFilterSelect.vue'
 import { provideListReload, useRouteDrawer } from '@/composables/useRouteDrawer'
+import { useListProductFilter } from '@/composables/useListProductFilter'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const dialog = useDialog()
+const { productId, initFromRouteAndStore, setProductId } = useListProductFilter()
 const { drawerOpen, width, title, onUpdateShow } = useRouteDrawer({
   listPath: '/bugs',
   drawerNames: ['bug-new', 'bug-detail', 'bug-edit'],
@@ -90,7 +85,6 @@ const { drawerOpen, width, title, onUpdateShow } = useRouteDrawer({
 
 const list = ref<any[]>([])
 const loading = ref(false)
-const productId = ref<number | null>(null)
 const projectId = ref<number | null>(null)
 const sprintId = ref<number | null>(null)
 const storyId = ref<number | null>(null)
@@ -100,7 +94,6 @@ const pri = ref<string | null>(null)
 const assignedTo = ref<string | null>(null)
 const keyword = ref('')
 
-const productOptions = ref<{ label: string; value: number }[]>([])
 const projectOptions = ref<{ label: string; value: number }[]>([])
 const sprintOptions = ref<{ label: string; value: number }[]>([])
 const storyOptions = ref<{ label: string; value: number }[]>([])
@@ -123,6 +116,7 @@ const columns: DataTableColumns<any> = [
   { title: '优先级', key: 'pri', width: 80 },
   { title: '状态', key: 'status', width: 90, render: (r) => bugStatusMap[r.status] || r.status },
   { title: '指派人', key: 'assignee', width: 100, render: (r) => renderUser(r.assignee) },
+  { title: '创建人', key: 'creator', width: 100, render: (r) => renderUser(r.creator) },
   { title: '关联需求', key: 'storyId', width: 90, render: (r) => (r.storyId ? `#${r.storyId}` : '-') },
   { title: '附件', key: 'attachCount', width: 70, render: (r) => r.attachCount ?? 0 },
   {
@@ -153,15 +147,6 @@ function goCreate() {
   if (storyId.value) q.set('storyId', String(storyId.value))
   const qs = q.toString()
   router.push(`/bugs/new${qs ? `?${qs}` : ''}`)
-}
-
-async function loadProducts() {
-  try {
-    const res: any = await listProducts({ page: 1, pageSize: 100, status: 'normal' })
-    productOptions.value = (res.data.list || []).map((p: any) => ({ label: p.name, value: p.id }))
-  } catch (e: any) {
-    message.error(e.message || '加载产品失败')
-  }
 }
 
 async function loadProjects() {
@@ -200,13 +185,16 @@ async function loadUsers() {
   assigneeOptions.value = [{ label: '指派给我', value: 'me' }, ...opts]
 }
 
-function onProductChange() {
+function onProductFilterChange(id: number | null) {
+  setProductId(id)
   projectId.value = null
   sprintId.value = null
   storyId.value = null
+  pagination.page = 1
   loadProjects()
   loadSprints()
   loadStories()
+  load()
 }
 
 function onProjectChange() {
@@ -266,13 +254,17 @@ function onDelete(row: any) {
 
 onMounted(async () => {
   const q = route.query
-  if (q.productId) productId.value = Number(q.productId)
   if (q.projectId) projectId.value = Number(q.projectId)
   if (q.sprintId) sprintId.value = Number(q.sprintId)
   if (q.storyId) storyId.value = Number(q.storyId)
   if (q.status) status.value = String(q.status)
   if (q.assignedTo) assignedTo.value = String(q.assignedTo)
-  await Promise.all([loadProducts(), loadUsers()])
+  initFromRouteAndStore()
+  try {
+    await loadUsers()
+  } catch {
+    // ignore
+  }
   await loadProjects()
   await loadSprints()
   if (productId.value) await loadStories()

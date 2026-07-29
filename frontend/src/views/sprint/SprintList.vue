@@ -5,6 +5,7 @@
       <n-button v-if="auth.has('sprint.create')" type="primary" @click="goCreate">新建迭代</n-button>
     </n-space>
     <n-space>
+      <ProductFilterSelect :model-value="productId" @update:model-value="onProductChange" />
       <n-select v-model:value="status" :options="statusOptions" clearable placeholder="状态" style="width: 140px" />
       <n-button @click="load">查询</n-button>
     </n-space>
@@ -25,13 +26,16 @@ import { listSprints, deleteSprint } from '@/api'
 import { sprintStatusMap } from '@/constants/labels'
 import { useAuthStore } from '@/stores/auth'
 import EntityDrawer from '@/components/EntityDrawer.vue'
+import ProductFilterSelect from '@/components/ProductFilterSelect.vue'
 import { provideListReload, useRouteDrawer } from '@/composables/useRouteDrawer'
+import { useListProductFilter } from '@/composables/useListProductFilter'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const dialog = useDialog()
+const { productId, initFromRouteAndStore, setProductId } = useListProductFilter()
 const { drawerOpen, width, title, onUpdateShow } = useRouteDrawer({
   listPath: '/sprints',
   drawerNames: ['sprint-new', 'sprint-detail', 'sprint-edit'],
@@ -46,7 +50,6 @@ const { drawerOpen, width, title, onUpdateShow } = useRouteDrawer({
 
 const list = ref<any[]>([])
 const loading = ref(false)
-const productId = ref<number | null>(null)
 const projectId = ref<number | null>(null)
 const status = ref<string | null>(null)
 const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0 })
@@ -64,6 +67,12 @@ const columns: DataTableColumns<any> = [
   { title: '项目', key: 'projectName', width: 140 },
   { title: '产品', key: 'productName', width: 120 },
   { title: '状态', key: 'status', width: 90, render: (r) => sprintStatusMap[r.status] || r.status },
+  {
+    title: '创建人',
+    key: 'creator',
+    width: 100,
+    render: (r) => (r.creator ? r.creator.realname || r.creator.account : '-'),
+  },
   { title: '开始', key: 'begin', width: 110, render: (r) => fmtDate(r.begin) },
   { title: '结束', key: 'end', width: 110, render: (r) => fmtDate(r.end) },
   { title: '需求数', key: 'storyCount', width: 80 },
@@ -90,6 +99,12 @@ const columns: DataTableColumns<any> = [
 function goCreate() {
   const q = projectId.value ? `?projectId=${projectId.value}` : ''
   router.push(`/sprints/new${q}`)
+}
+
+function onProductChange(id: number | null) {
+  setProductId(id)
+  pagination.page = 1
+  load()
 }
 
 async function load() {
@@ -137,11 +152,10 @@ function onDelete(row: any) {
 }
 
 onMounted(() => {
-  // 从项目/产品详情等入口带入 query，走 WHERE 筛选
   const q = route.query
-  if (q.productId) productId.value = Number(q.productId)
   if (q.projectId) projectId.value = Number(q.projectId)
   if (q.status) status.value = String(q.status)
+  initFromRouteAndStore()
   load()
 })
 </script>

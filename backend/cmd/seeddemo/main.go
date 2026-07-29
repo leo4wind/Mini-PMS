@@ -187,7 +187,7 @@ func main() {
 		sprints = append(sprints, model.Sprint{
 			ProjectID: proj.ID, Name: name, Status: st,
 			Begin: date(2026, m, 1), End: date(2026, m, 28),
-			Goal: ptr(name + "目标：交付核心功能"),
+			Goal: ptr(name + "目标：交付核心功能"), CreatedBy: 1,
 		})
 	}
 	if err := db.Create(&sprints).Error; err != nil {

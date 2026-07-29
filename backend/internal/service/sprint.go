@@ -19,10 +19,11 @@ func NewSprintService(db *gorm.DB) *SprintService {
 
 type SprintVO struct {
 	model.Sprint
-	ProjectName string `json:"projectName,omitempty"`
-	ProductID   uint64 `json:"productId,omitempty"`
-	ProductName string `json:"productName,omitempty"`
-	StoryCount  int64  `json:"storyCount"`
+	ProjectName string     `json:"projectName,omitempty"`
+	ProductID   uint64     `json:"productId,omitempty"`
+	ProductName string     `json:"productName,omitempty"`
+	Creator     *UserBrief `json:"creator,omitempty"`
+	StoryCount  int64      `json:"storyCount"`
 }
 
 func (s *SprintService) List(page, pageSize int, projectID, productID uint64, status string) (*PageResult, error) {
@@ -34,21 +35,24 @@ func (s *SprintService) List(page, pageSize int, projectID, productID uint64, st
 	}
 
 	type row struct {
-		ID           uint64     `gorm:"column:id"`
-		ProjectID    uint64     `gorm:"column:project_id"`
-		Name         string     `gorm:"column:name"`
-		Status       string     `gorm:"column:status"`
-		Begin        *time.Time `gorm:"column:begin"`
-		End          *time.Time `gorm:"column:end"`
-		Goal         *string    `gorm:"column:goal"`
-		CreatedAt    time.Time  `gorm:"column:created_at"`
-		UpdatedAt    time.Time  `gorm:"column:updated_at"`
-		Deleted      uint8      `gorm:"column:deleted"`
-		ProjectName  string     `gorm:"column:project_name"`
-		ProductIDCol uint64     `gorm:"column:product_id"`
-		ProductName  string     `gorm:"column:product_name"`
-		StoryCount   int64      `gorm:"column:story_count"`
-		Total        int64      `gorm:"column:total_count"`
+		ID             uint64     `gorm:"column:id"`
+		ProjectID      uint64     `gorm:"column:project_id"`
+		Name           string     `gorm:"column:name"`
+		Status         string     `gorm:"column:status"`
+		Begin          *time.Time `gorm:"column:begin"`
+		End            *time.Time `gorm:"column:end"`
+		Goal           *string    `gorm:"column:goal"`
+		CreatedBy      uint64     `gorm:"column:created_by"`
+		CreatedAt      time.Time  `gorm:"column:created_at"`
+		UpdatedAt      time.Time  `gorm:"column:updated_at"`
+		Deleted        uint8      `gorm:"column:deleted"`
+		ProjectName    string     `gorm:"column:project_name"`
+		ProductIDCol   uint64     `gorm:"column:product_id"`
+		ProductName    string     `gorm:"column:product_name"`
+		CreatorAccount *string    `gorm:"column:creator_account"`
+		CreatorName    *string    `gorm:"column:creator_name"`
+		StoryCount     int64      `gorm:"column:story_count"`
+		Total          int64      `gorm:"column:total_count"`
 	}
 
 	where := "sp.deleted = 0"
@@ -67,11 +71,13 @@ func (s *SprintService) List(page, pageSize int, projectID, productID uint64, st
 	}
 
 	sql := `SELECT sp.*, proj.name AS project_name, proj.product_id AS product_id, prod.name AS product_name,
+			cu.account AS creator_account, cu.realname AS creator_name,
 			COALESCE(sc.story_count, 0) AS story_count,
 			COUNT(*) OVER() AS total_count
 		FROM sprint sp
 		JOIN project proj ON proj.id = sp.project_id AND proj.deleted = 0
 		LEFT JOIN product prod ON prod.id = proj.product_id
+		LEFT JOIN ` + "`user`" + ` cu ON cu.id = sp.created_by AND cu.deleted = 0
 		LEFT JOIN (
 			SELECT sprint_id, COUNT(*) AS story_count
 			FROM sprint_story
@@ -93,13 +99,21 @@ func (s *SprintService) List(page, pageSize int, projectID, productID uint64, st
 		total = r.Total
 		sp := model.Sprint{
 			ID: r.ID, ProjectID: r.ProjectID, Name: r.Name, Status: r.Status,
-			Begin: r.Begin, End: r.End, Goal: r.Goal,
+			Begin: r.Begin, End: r.End, Goal: r.Goal, CreatedBy: r.CreatedBy,
 			CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, Deleted: r.Deleted,
 		}
-		vos = append(vos, SprintVO{
+		vo := SprintVO{
 			Sprint: sp, ProjectName: r.ProjectName,
 			ProductID: r.ProductIDCol, ProductName: r.ProductName, StoryCount: r.StoryCount,
-		})
+		}
+		vo.Creator = &UserBrief{ID: r.CreatedBy}
+		if r.CreatorAccount != nil {
+			vo.Creator.Account = *r.CreatorAccount
+		}
+		if r.CreatorName != nil {
+			vo.Creator.Realname = *r.CreatorName
+		}
+		vos = append(vos, vo)
 	}
 	return &PageResult{List: vos, Page: page, PageSize: pageSize, Total: total}, nil
 }
@@ -113,6 +127,14 @@ func (s *SprintService) toVO(sp model.Sprint) SprintVO {
 		var prod model.Product
 		if err := s.db.Select("name").Where("id = ?", proj.ProductID).First(&prod).Error; err == nil {
 			vo.ProductName = prod.Name
+		}
+	}
+	if sp.CreatedBy > 0 {
+		var u model.User
+		if err := s.db.Select("id", "account", "realname").Where("id = ? AND deleted = 0", sp.CreatedBy).First(&u).Error; err == nil {
+			vo.Creator = &UserBrief{ID: u.ID, Account: u.Account, Realname: u.Realname}
+		} else {
+			vo.Creator = &UserBrief{ID: sp.CreatedBy}
 		}
 	}
 	s.db.Model(&model.SprintStory{}).Where("sprint_id = ?", sp.ID).Count(&vo.StoryCount)
@@ -136,7 +158,7 @@ type CreateSprintInput struct {
 	Goal      *string `json:"goal"`
 }
 
-func (s *SprintService) Create(in CreateSprintInput) (*SprintVO, error) {
+func (s *SprintService) Create(userID uint64, in CreateSprintInput) (*SprintVO, error) {
 	var proj model.Project
 	if err := s.db.Where("id = ? AND deleted = 0", in.ProjectID).First(&proj).Error; err != nil {
 		return nil, fmt.Errorf("项目不存在")
@@ -156,6 +178,7 @@ func (s *SprintService) Create(in CreateSprintInput) (*SprintVO, error) {
 		Begin:     begin,
 		End:       end,
 		Goal:      in.Goal,
+		CreatedBy: userID,
 	}
 	if err := s.db.Create(&sp).Error; err != nil {
 		return nil, err

@@ -21,6 +21,7 @@ type ProjectVO struct {
 	model.Project
 	ProductName string     `json:"productName"`
 	PMUser      *UserBrief `json:"pmUser,omitempty"`
+	Creator     *UserBrief `json:"creator,omitempty"`
 	SprintCount int64      `json:"sprintCount"`
 }
 
@@ -55,6 +56,8 @@ func (s *ProjectService) List(page, pageSize int, productID uint64, status, keyw
 		ProductName string     `gorm:"column:product_name"`
 		PMAccount   *string    `gorm:"column:pm_account"`
 		PMRealname  *string    `gorm:"column:pm_realname"`
+		CreatorAccount *string `gorm:"column:creator_account"`
+		CreatorName    *string `gorm:"column:creator_name"`
 		SprintCount int64      `gorm:"column:sprint_count"`
 		Total       int64      `gorm:"column:total_count"`
 	}
@@ -77,11 +80,13 @@ func (s *ProjectService) List(page, pageSize int, productID uint64, status, keyw
 
 	sql := `SELECT p.*, prod.name AS product_name,
 			pm.account AS pm_account, pm.realname AS pm_realname,
+			cu.account AS creator_account, cu.realname AS creator_name,
 			COALESCE(sc.sprint_count, 0) AS sprint_count,
 			COUNT(*) OVER() AS total_count
 		FROM project p
 		LEFT JOIN product prod ON prod.id = p.product_id
 		LEFT JOIN ` + "`user`" + ` pm ON pm.id = p.pm AND pm.deleted = 0
+		LEFT JOIN ` + "`user`" + ` cu ON cu.id = p.created_by AND cu.deleted = 0
 		LEFT JOIN (
 			SELECT project_id, COUNT(*) AS sprint_count
 			FROM sprint WHERE deleted = 0
@@ -107,6 +112,13 @@ func (s *ProjectService) List(page, pageSize int, productID uint64, status, keyw
 			CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, Deleted: r.Deleted,
 		}
 		vo := ProjectVO{Project: p, ProductName: r.ProductName, SprintCount: r.SprintCount}
+		vo.Creator = &UserBrief{ID: r.CreatedBy}
+		if r.CreatorAccount != nil {
+			vo.Creator.Account = *r.CreatorAccount
+		}
+		if r.CreatorName != nil {
+			vo.Creator.Realname = *r.CreatorName
+		}
 		if r.PM != nil {
 			vo.PMUser = &UserBrief{ID: *r.PM}
 			if r.PMAccount != nil {
