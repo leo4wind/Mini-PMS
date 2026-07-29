@@ -23,9 +23,12 @@
       @update:sorter="onSorterUpdate"
     />
 
-    <EntityDrawer :show="drawerOpen" :title="title" :width="width" @update:show="onUpdateShow">
-      <router-view />
+    <EntityDrawer :show="detailOpen" :title="title" :width="width" @update:show="onUpdateShow">
+      <router-view v-if="detailOpen" />
     </EntityDrawer>
+    <EntityModal :show="formOpen" :title="title" @update:show="onUpdateShow">
+      <router-view v-if="formOpen" />
+    </EntityModal>
   </n-space>
 </template>
 
@@ -38,6 +41,7 @@ import { listStories, deleteStory } from '@/api'
 import { storyTypeMap, storyStatusMap } from '@/constants/labels'
 import { useAuthStore } from '@/stores/auth'
 import EntityDrawer from '@/components/EntityDrawer.vue'
+import EntityModal from '@/components/EntityModal.vue'
 import ProductFilterSelect from '@/components/ProductFilterSelect.vue'
 import { provideListReload, useRouteDrawer } from '@/composables/useRouteDrawer'
 import { useListProductFilter } from '@/composables/useListProductFilter'
@@ -58,6 +62,9 @@ const { drawerOpen, width, title, onUpdateShow } = useRouteDrawer({
     'story-edit': '编辑需求',
   },
 })
+
+const formOpen = computed(() => drawerOpen.value && ['story-new', 'story-edit'].includes(String(route.name)))
+const detailOpen = computed(() => drawerOpen.value && route.name === 'story-detail')
 
 const list = ref<any[]>([])
 const loading = ref(false)
@@ -128,7 +135,7 @@ const columns = computed<DataTableColumns<any>>(() => [
       return h(NSpace, null, {
         default: () => [
           h(NButton, { text: true, type: 'primary', onClick: () => router.push(`/stories/${row.id}`) }, { default: () => '查看' }),
-          auth.has('story.edit')
+          auth.has('story.edit') && row.type !== 'story'
             ? h(NButton, { text: true, onClick: () => router.push(`/stories/${row.id}/edit`) }, { default: () => '编辑' })
             : null,
           auth.has('story.delete')

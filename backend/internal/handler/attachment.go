@@ -35,6 +35,10 @@ func (h *AttachmentHandler) UploadStory(c *gin.Context) {
 			response.FailCode(c, 42206, err.Error())
 			return
 		}
+		if strings.Contains(err.Error(), "可交付") {
+			response.FailCode(c, 42208, err.Error())
+			return
+		}
 		response.BadRequest(c, err.Error())
 		return
 	}
@@ -60,11 +64,36 @@ func (h *AttachmentHandler) UploadBug(c *gin.Context) {
 	response.OK(c, res)
 }
 
+func (h *AttachmentHandler) UploadStoryRemark(c *gin.Context) {
+	storyID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	remarkID, _ := strconv.ParseUint(c.Param("remarkId"), 10, 64)
+	file, err := c.FormFile("file")
+	if err != nil {
+		response.BadRequest(c, "请选择文件")
+		return
+	}
+	res, err := h.svc.UploadForStoryRemark(storyID, remarkID, middleware.UserID(c), file)
+	if err != nil {
+		if strings.Contains(err.Error(), "不支持") || strings.Contains(err.Error(), "超过限制") {
+			response.FailCode(c, 42206, err.Error())
+			return
+		}
+		if strings.Contains(err.Error(), "已定稿") || strings.Contains(err.Error(), "可交付") {
+			response.FailCode(c, 42208, err.Error())
+			return
+		}
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.OK(c, res)
+}
+
 func (h *AttachmentHandler) checkListPerm(c *gin.Context, objectType string) bool {
 	code := "story.list"
 	if objectType == "bug" {
 		code = "bug.list"
 	}
+	// story_remark 与 story 同权
 	ok, err := h.perms.HasCode(middleware.UserID(c), code)
 	if err != nil || !ok {
 		response.Forbidden(c, "无权限")
@@ -140,6 +169,10 @@ func (h *AttachmentHandler) Delete(c *gin.Context) {
 		return
 	}
 	if err := h.svc.Delete(id); err != nil {
+		if strings.Contains(err.Error(), "不可删除") {
+			response.FailCode(c, 42208, err.Error())
+			return
+		}
 		response.NotFound(c, err.Error())
 		return
 	}

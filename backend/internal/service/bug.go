@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"minipms/internal/model"
 
@@ -28,7 +29,13 @@ type BugVO struct {
 	Attachments []AttachmentBrief  `json:"attachments,omitempty"`
 }
 
-func (s *BugService) List(page, pageSize int, productID, projectID, sprintID, storyID uint64, status, severity, pri, assignedTo, keyword string) (*PageResult, error) {
+var bugListSortCols = map[string]string{
+	"severity": "b.severity",
+	"pri":      "b.pri",
+	"status":   "b.status",
+}
+
+func (s *BugService) List(page, pageSize int, productID, projectID, sprintID, storyID uint64, status, severity, pri, assignedTo, keyword, sortBy, sortOrder string) (*PageResult, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -87,6 +94,16 @@ func (s *BugService) List(page, pageSize int, productID, projectID, sprintID, st
 		args = append(args, like, like)
 	}
 
+	orderSQL := "b.id DESC"
+	if col, ok := bugListSortCols[sortBy]; ok {
+		switch strings.ToLower(sortOrder) {
+		case "asc":
+			orderSQL = col + " ASC, b.id DESC"
+		case "desc":
+			orderSQL = col + " DESC, b.id DESC"
+		}
+	}
+
 	sql := `SELECT b.*, prod.name AS product_name,
 			au.account AS assignee_account, au.realname AS assignee_name,
 			cu.account AS creator_account, cu.realname AS creator_name,
@@ -103,7 +120,7 @@ func (s *BugService) List(page, pageSize int, productID, projectID, sprintID, st
 			GROUP BY object_id
 		) ac ON ac.object_id = b.id
 		WHERE ` + where + `
-		ORDER BY b.id DESC
+		ORDER BY ` + orderSQL + `
 		LIMIT ? OFFSET ?`
 	args = append(args, pageSize, (page-1)*pageSize)
 

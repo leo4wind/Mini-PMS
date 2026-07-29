@@ -22,6 +22,7 @@ USE `minipms`;
 DROP TABLE IF EXISTS `role_menu`;
 DROP TABLE IF EXISTS `user_role`;
 DROP TABLE IF EXISTS `attachment`;
+DROP TABLE IF EXISTS `story_remark`;
 DROP TABLE IF EXISTS `sprint_story`;
 DROP TABLE IF EXISTS `bug`;
 DROP TABLE IF EXISTS `sprint`;
@@ -139,7 +140,7 @@ CREATE TABLE `story` (
   `product_id`  BIGINT UNSIGNED NOT NULL COMMENT '归属产品',
   `type`        ENUM('planning','story') NOT NULL DEFAULT 'planning' COMMENT 'planning=原始/规划需求 story=可交付需求',
   `title`       VARCHAR(255) NOT NULL,
-  `description` TEXT NULL,
+  `description` MEDIUMTEXT NULL COMMENT '描述 HTML；图片 src 为 /api/v1/attachments/:id/preview',
   `pri`         TINYINT UNSIGNED NOT NULL DEFAULT 3 COMMENT '1最高 4最低',
   `status`      ENUM('draft','active','closed') NOT NULL DEFAULT 'draft',
   `estimate`    DECIMAL(10,2) UNSIGNED NULL DEFAULT NULL COMMENT '估算',
@@ -161,6 +162,23 @@ CREATE TABLE `story` (
   CONSTRAINT `fk_story_opened_by` FOREIGN KEY (`opened_by`) REFERENCES `user` (`id`)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='需求(归属产品；规划或可交付)';
+
+CREATE TABLE `story_remark` (
+  `id`          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `story_id`    BIGINT UNSIGNED NOT NULL,
+  `content`     MEDIUMTEXT NULL COMMENT 'finalize 后写入 HTML',
+  `finalized`   TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0=草稿创建中 1=已定稿不可改',
+  `created_by`  BIGINT UNSIGNED NOT NULL,
+  `created_at`  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted`     TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_story_remark_story` (`story_id`),
+  KEY `idx_story_remark_deleted` (`deleted`),
+  CONSTRAINT `fk_story_remark_story` FOREIGN KEY (`story_id`) REFERENCES `story` (`id`)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_story_remark_created_by` FOREIGN KEY (`created_by`) REFERENCES `user` (`id`)
+    ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='需求备注(可交付后追加，定稿后不可改)';
 
 CREATE TABLE `project` (
   `id`          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -282,7 +300,7 @@ CREATE TABLE `bug` (
 
 CREATE TABLE `attachment` (
   `id`             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `object_type`    ENUM('story','bug') NOT NULL COMMENT '关联对象类型',
+  `object_type`    ENUM('story','bug','story_remark') NOT NULL COMMENT '关联对象类型',
   `object_id`      BIGINT UNSIGNED NOT NULL COMMENT '关联对象 ID',
   `original_name`  VARCHAR(255) NOT NULL COMMENT '上传时文件名',
   `stored_name`    VARCHAR(255) NOT NULL COMMENT '存储文件名(唯一)',
@@ -301,7 +319,7 @@ CREATE TABLE `attachment` (
   CONSTRAINT `fk_attachment_uploader` FOREIGN KEY (`uploaded_by`) REFERENCES `user` (`id`)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  COMMENT='附件(多态关联 story/bug；允许 doc/docx/txt/md/图片)';
+  COMMENT='附件(多态关联 story/bug/story_remark；允许 doc/docx/txt/md/图片)';
 
 SET FOREIGN_KEY_CHECKS = 1;
 

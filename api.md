@@ -62,6 +62,7 @@
 | 42205 | 存在关联，禁止删除 |
 | 42206 | 附件类型或大小不合法 |
 | 42207 | 仅 active 缺陷可删 |
+| 42208 | 可交付需求锁定 / 备注不可改 |
 
 ### 0.3 列表查询通用
 
@@ -300,7 +301,8 @@ Body: `productId*`, `type?`(默认 planning), `title*`, `description?`, `pri?`, 
 
 `story.edit`  
 Body: `title?`, `description?`, `pri?`, `estimate?`, `assignedTo?`, `type?`, `status?`  
-状态变更须符合状态机，否则 42201
+状态变更须符合状态机，否则 42201  
+`type=story`（可交付）时仅允许改 `status`，其它字段 → 42208
 
 ### DELETE `/stories/:id`
 
@@ -310,7 +312,33 @@ Body: `title?`, `description?`, `pri?`, `estimate?`, `assignedTo?`, `type?`, `st
 
 `story.attach`  
 `Content-Type: multipart/form-data`，字段名 `file`  
+可交付需求禁止上传需求级附件 → 42208  
 白名单与大小见 features；失败 42206
+
+### GET `/stories/:id/remarks`
+
+`story.list`  
+返回已定稿备注列表（倒序）：`id, content, creator, createdAt, attachments[]`
+
+### POST `/stories/:id/remarks`
+
+`story.edit`  
+创建未定稿草稿（仅可交付）；返回 `{ id, finalized:false }`；非可交付 → 42208
+
+### POST `/stories/:id/remarks/:remarkId/finalize`
+
+`story.edit`  
+Body: `{ content }`；仅未定稿可调用一次；之后不可再改 → 42208
+
+### DELETE `/stories/:id/remarks/:remarkId`
+
+`story.edit`  
+仅未定稿草稿可软删（提交失败清理用）；已定稿 → 42208
+
+### POST `/stories/:id/remarks/:remarkId/attachments`
+
+`story.attach`  
+挂到备注；仅未定稿可传；备注附件不可删除
 
 ```json
 // data
@@ -431,7 +459,7 @@ Query: `keyword?`, page
 ### GET `/bugs`
 
 `bug.list`  
-Query: `productId?`, `projectId?`, `sprintId?`, `storyId?`, `status?`, `severity?`, `pri?`, `assignedTo?`, `keyword?`  
+Query: `productId?`, `projectId?`, `sprintId?`, `storyId?`, `status?`, `severity?`, `pri?`, `assignedTo?`, `keyword?`, `sortBy?`（`severity`|`pri`|`status`）, `sortOrder?`（`asc`|`desc`；与 sortBy 同时传才生效，否则按 id 倒序）  
 （页面从产品进时带 productId；不强制，但推荐）
 
 ### POST `/bugs`
@@ -528,7 +556,7 @@ Body: `{ "resolution": "fixed" }` → status=resolved
 | 登录 | `POST /auth/login` |
 | 工作台 | `GET /dashboard/summary`, `GET /auth/me` |
 | 产品列表/详情 | `GET/POST/PUT/DELETE /products` |
-| 需求列表/详情 | `GET/POST/PUT/DELETE /stories`, attachments |
+| 需求列表/详情 | `GET/POST/PUT/DELETE /stories`, attachments, remarks |
 | 项目 | `CRUD /projects` |
 | 迭代详情+关联 | `CRUD /sprints`, `POST/DELETE .../stories`, `.../story-candidates` |
 | 缺陷 | `CRUD /bugs` + resolve/close/activate + attachments |

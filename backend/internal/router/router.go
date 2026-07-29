@@ -21,6 +21,7 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 	systemSvc := service.NewSystemService(db)
 	projectSvc := service.NewProjectService(db)
 	storySvc := service.NewStoryService(db)
+	storyRemarkSvc := service.NewStoryRemarkService(db)
 	sprintSvc := service.NewSprintService(db)
 	bugSvc := service.NewBugService(db)
 	attachmentSvc := service.NewAttachmentService(db, cfg.Upload)
@@ -31,6 +32,7 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 	systemH := handler.NewSystemHandler(systemSvc)
 	projectH := handler.NewProjectHandler(projectSvc)
 	storyH := handler.NewStoryHandler(storySvc)
+	storyRemarkH := handler.NewStoryRemarkHandler(storyRemarkSvc)
 	sprintH := handler.NewSprintHandler(sprintSvc)
 	bugH := handler.NewBugHandler(bugSvc)
 	attachmentH := handler.NewAttachmentHandler(attachmentSvc, permSvc)
@@ -64,6 +66,11 @@ func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 			authed.PUT("/stories/:id", middleware.RequirePerm(permSvc, "story.edit"), storyH.Update)
 			authed.DELETE("/stories/:id", middleware.RequirePerm(permSvc, "story.delete"), storyH.Delete)
 			authed.POST("/stories/:id/attachments", middleware.RequirePerm(permSvc, "story.attach"), attachmentH.UploadStory)
+			authed.GET("/stories/:id/remarks", middleware.RequirePerm(permSvc, "story.list"), storyRemarkH.List)
+			authed.POST("/stories/:id/remarks", middleware.RequirePerm(permSvc, "story.edit"), storyRemarkH.CreateDraft)
+			authed.POST("/stories/:id/remarks/:remarkId/finalize", middleware.RequirePerm(permSvc, "story.edit"), storyRemarkH.Finalize)
+			authed.DELETE("/stories/:id/remarks/:remarkId", middleware.RequirePerm(permSvc, "story.edit"), storyRemarkH.DiscardDraft)
+			authed.POST("/stories/:id/remarks/:remarkId/attachments", middleware.RequirePerm(permSvc, "story.attach"), attachmentH.UploadStoryRemark)
 
 			// projects
 			authed.GET("/projects", middleware.RequirePerm(permSvc, "project.list"), projectH.List)

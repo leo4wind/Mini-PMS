@@ -347,6 +347,16 @@ func (s *StoryService) Update(id uint64, in UpdateStoryInput) (*StoryVO, error) 
 	if err := s.db.Where("id = ? AND deleted = 0", id).First(&st).Error; err != nil {
 		return nil, fmt.Errorf("需求不存在")
 	}
+
+	// 可交付后正文锁定：仅允许改状态
+	if st.Type == "story" {
+		hasContentChange := in.Title != nil || in.Description != nil || in.Pri != nil || in.Estimate != nil ||
+			in.ClearAssign || in.AssignedTo != nil || (in.Type != nil && *in.Type != st.Type)
+		if hasContentChange {
+			return nil, fmt.Errorf("可交付需求不可编辑正文，请追加备注")
+		}
+	}
+
 	updates := map[string]interface{}{}
 	if in.Title != nil {
 		updates["title"] = *in.Title

@@ -15,13 +15,19 @@ const CtxAccount = "account"
 
 func JWTAuth(secret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		h := c.GetHeader("Authorization")
-		if h == "" || !strings.HasPrefix(h, "Bearer ") {
+		token := ""
+		if h := c.GetHeader("Authorization"); strings.HasPrefix(h, "Bearer ") {
+			token = strings.TrimPrefix(h, "Bearer ")
+		} else if q := c.Query("token"); q != "" {
+			// 供 Markdown 图片 <img src> 预览（无法带 Authorization 头）
+			token = q
+		}
+		if token == "" {
 			response.Unauthorized(c, "未登录")
 			c.Abort()
 			return
 		}
-		claims, err := auth.Parse(secret, strings.TrimPrefix(h, "Bearer "))
+		claims, err := auth.Parse(secret, token)
 		if err != nil {
 			response.Unauthorized(c, "登录已失效")
 			c.Abort()

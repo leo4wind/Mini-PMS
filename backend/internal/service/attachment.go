@@ -43,8 +43,12 @@ type AttachmentVO struct {
 }
 
 func (s *AttachmentService) UploadForStory(storyID, userID uint64, fileHeader *multipart.FileHeader) (*AttachmentVO, error) {
-	if _, err := NewStoryService(s.db).Exists(storyID); err != nil {
+	st, err := NewStoryService(s.db).Exists(storyID)
+	if err != nil {
 		return nil, err
+	}
+	if st.Type == "story" {
+		return nil, fmt.Errorf("可交付需求不可再上传需求级附件，请追加备注")
 	}
 	return s.doUpload("story", storyID, userID, fileHeader)
 }
@@ -54,6 +58,42 @@ func (s *AttachmentService) UploadForBug(bugID, userID uint64, fileHeader *multi
 		return nil, err
 	}
 	return s.doUpload("bug", bugID, userID, fileHeader)
+}
+
+func (s *AttachmentService) UploadForStoryRemark(storyID, remarkID, userID uint64, fileHeader *multipart.FileHeader) (*AttachmentVO, error) {
+	r, err := NewStoryRemarkService(s.db).GetOwned(storyID, remarkID)
+	if err != nil {
+		return nil, err
+	}
+	if r.Finalized == 1 {
+		return nil, fmt.Errorf("备注已定稿，不可再上传附件")
+	}
+	return s.doUpload("story_remark", remarkID, userID, fileHeader)
+}
+
+func (s *AttachmentService) Delete(id uint64) error {
+	att, err := s.Get(id)
+	if err != nil {
+		return err
+	}
+	if att.ObjectType == "story_remark" {
+		return fmt.Errorf("备注附件不可删除")
+	}
+	// 可交付需求的需求级附件也不允许删
+	if att.ObjectType == "story" {
+		st, err := NewStoryService(s.db).Exists(att.ObjectID)
+		if err == nil && st.Type == "story" {
+			return fmt.Errorf("可交付需求附件不可删除")
+		}
+	}
+	res := s.db.Model(&model.Attachment{}).Where("id = ? AND deleted = 0", id).Update("deleted", 1)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("附件不存在")
+	}
+	return nil
 }
 
 func (s *AttachmentService) doUpload(objectType string, objectID, userID uint64, fileHeader *multipart.FileHeader) (*AttachmentVO, error) {
@@ -146,15 +186,4 @@ func (s *AttachmentService) AbsPath(att *model.Attachment) string {
 
 func (s *AttachmentService) IsImage(ext string) bool {
 	return slices.Contains(imageExts, strings.ToLower(ext))
-}
-
-func (s *AttachmentService) Delete(id uint64) error {
-	res := s.db.Model(&model.Attachment{}).Where("id = ? AND deleted = 0", id).Update("deleted", 1)
-	if res.Error != nil {
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
-		return fmt.Errorf("附件不存在")
-	}
-	return nil
 }

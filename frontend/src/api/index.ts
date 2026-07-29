@@ -51,6 +51,25 @@ export const uploadStoryAttachment = (id: number | string, formData: FormData) =
   http.post(`/stories/${id}/attachments`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
+export const listStoryRemarks = (storyId: number | string) =>
+  http.get(`/stories/${storyId}/remarks`)
+export const createStoryRemarkDraft = (storyId: number | string) =>
+  http.post(`/stories/${storyId}/remarks`)
+export const finalizeStoryRemark = (
+  storyId: number | string,
+  remarkId: number | string,
+  data: { content: string },
+) => http.post(`/stories/${storyId}/remarks/${remarkId}/finalize`, data)
+export const discardStoryRemarkDraft = (storyId: number | string, remarkId: number | string) =>
+  http.delete(`/stories/${storyId}/remarks/${remarkId}`)
+export const uploadStoryRemarkAttachment = (
+  storyId: number | string,
+  remarkId: number | string,
+  formData: FormData,
+) =>
+  http.post(`/stories/${storyId}/remarks/${remarkId}/attachments`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
 
 // sprints
 export const listSprints = (params: Record<string, unknown>) =>

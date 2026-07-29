@@ -28,9 +28,9 @@
 | `/products/:id` | 产品详情（右侧抽屉） | `product.list` | F-PROD-03~05 |
 | `/products/:id/edit` | 编辑产品（右侧抽屉） | `product.edit` | F-PROD-03 |
 | `/stories` | 需求列表 | `story.list` | F-STORY-01 |
-| `/stories/new` | 新建需求（右侧抽屉） | `story.create` | F-STORY-02 |
+| `/stories/new` | 新建需求（居中 Modal） | `story.create` | F-STORY-02 |
 | `/stories/:id` | 需求详情（右侧抽屉） | `story.list` | F-STORY-03~09 |
-| `/stories/:id/edit` | 编辑需求（右侧抽屉） | `story.edit` | F-STORY-03~05 |
+| `/stories/:id/edit` | 编辑需求（居中 Modal） | `story.edit` | F-STORY-03~05 |
 | `/projects` | 项目列表 | `project.list` | F-PRJ-01 |
 | `/projects/new` | 新建项目（右侧抽屉） | `project.create` | F-PRJ-02 |
 | `/projects/:id` | 项目详情（右侧抽屉） | `project.list` | F-PRJ-03~05 |
@@ -58,7 +58,7 @@
 3. **新建成功**：优先进详情抽屉；建产品成功**留在产品详情抽屉**，Toast 提示「已自动创建项目 xxx1.0」，提供跳转该项目的链接（不自动跳转）。  
 4. **人员选择**：下拉展示 `realname (account)`，存 `user_id`。  
 5. **列表分页**：默认每页 20；支持关键词搜索处单独注明。  
-6. **抽屉 vs 弹窗**：产品/需求/项目/迭代/缺陷的查看、新建、编辑用**右侧抽屉**（列表保持挂载，URL 不变可深链）；分配角色、解决缺陷、关联需求等次要操作用**弹窗**；系统用户/角色/菜单 CRUD 继续用弹窗。  
+6. **抽屉 vs 弹窗**：产品/项目/迭代/缺陷及需求**详情**用**右侧抽屉**；需求**新建/编辑**用居中大 Modal；分配角色、解决缺陷、关联需求等次要操作用**弹窗**；系统用户/角色/菜单 CRUD 继续用弹窗。  
 7. **跨页产品筛选**：需求/项目/迭代/缺陷列表均有可搜索、可清空的产品下拉；未选时查全部。选中产品写入共享状态（URL `?productId=` + localStorage）；侧栏切到其它三个列表时自动带上同一产品；清空后其它页也不带。直链 `?productId=` 优先生效。
 
 ---
@@ -151,22 +151,27 @@
 
 ### 4.2 新建 `/stories/new`
 
+居中大 Modal（非右侧抽屉）；表单两列布局。顺序：产品/类型 → 标题 → 优先级/估算 → 指派人 → 描述 → 附件。
+
 | 字段 | 必填 | 说明 |
 |------|:----:|------|
 | product_id | ✓ | 关闭中的产品不可选 |
 | type | ✓ | 默认 `planning` |
-| title | ✓ | |
-| description | | |
+| title | ✓ | 整行 |
 | pri | | 默认 3 |
 | estimate | | |
 | assigned_to | | |
-| 附件 | | 可先建后在详情上传；或创建成功后支持立即上传 |
+| description | | 所见即所得；图片先上传服务端，描述存预览地址 |
+| 附件 | | 新建可多选，保存后上传；需 `story.attach` |
 
 ### 4.3 编辑 `/stories/:id/edit`
 
-可改：title、description、pri、estimate、assigned_to、type、status（按状态机可选值）
+仅 `type=planning` 可进编辑页；可交付需求直链编辑会退回详情。  
+居中大 Modal；可改：title、description、pri、estimate、assigned_to、type、status。
 
 ### 4.4 详情 `/stories/:id`
+
+右侧抽屉。
 
 **头：** 标题、产品、类型、状态、pri、estimate、指派人  
 
@@ -174,17 +179,17 @@
 
 | 按钮 | 权限 | 说明 |
 |------|------|------|
-| 编辑 | `story.edit` | |
-| 激活 | `story.edit` | draft→active |
-| 关闭 / 重开 | `story.edit` | |
-| 转为可交付 | `story.edit` | planning→story |
+| 编辑 | `story.edit` | 仅 planning |
+| 激活 / 关闭 / 重开 | `story.edit` | 可交付后仍可改状态 |
+| 转为可交付 | `story.edit` | planning→story；之后正文锁定 |
+| 添加备注 | `story.edit` | 仅可交付；定稿后不可改 |
 | 删除 | `story.delete` | |
-| 上传附件 | `story.attach` | |
 
 **区块：**
-1. 描述  
-2. 附件列表：文件名、大小、上传人、时间；预览(图)/下载；删除(`story.attach`)  
-3. 关联信息：所在迭代列表（只读，来自 sprint_story）；相关缺陷入口  
+1. 描述（HTML；服务端图片回显）；可交付后只读  
+2. 附件：planning 可上传/删除；可交付后只读且不可再传需求级附件  
+3. **备注**（仅可交付）：时间倒序；创建人/时间/内容/附件；只增不改  
+4. 关联迭代；相关缺陷入口  
 
 ---
 
@@ -276,6 +281,8 @@
 **筛选：** 产品（可选，可按名称搜索，跨页共享）、项目、迭代、需求、status、severity、pri、指派人、关键词  
 
 **列：** ID、标题、产品、严重程度、优先级、状态、指派人、创建人、关联需求、附件数、操作  
+
+**排序：** 点击表头「严重程度 / 优先级 / 状态」在无 → 正序 → 倒序间切换；同时仅一列生效；默认按 ID 倒序  
 
 ### 7.2 新建 `/bugs/new`
 

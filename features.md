@@ -109,13 +109,14 @@
 |----|------|------|--------|
 | F-STORY-01 | 列表 | 按产品；可按 type/status/指派筛 | `story.list` |
 | F-STORY-02 | 新建 | 产品须 normal；默认 type=`planning` 或创建时可选；status=`draft` | `story.create` |
-| F-STORY-03 | 编辑 | title/description/pri/estimate/assigned_to/type | `story.edit` |
-| F-STORY-04 | 变更状态 | draft→active→closed；closed→active 重开 | `story.edit` |
-| F-STORY-05 | 转为可交付 | `planning → story`（可与编辑合并） | `story.edit` |
+| F-STORY-03 | 编辑 | title/description/pri/estimate/assigned_to/type；**仅 planning**；可交付正文锁定 | `story.edit` |
+| F-STORY-04 | 变更状态 | draft→active→closed；closed→active 重开；可交付后仍可改状态 | `story.edit` |
+| F-STORY-05 | 转为可交付 | `planning → story`；之后正文/需求级附件不可改 | `story.edit` |
 | F-STORY-06 | 删除 | 软删；已被任一迭代关联则禁止（先解绑）；级联软删其附件 | `story.delete` |
-| F-STORY-07 | 上传附件 | 见 §9 附件；权限 `story.attach` | `story.attach` |
-| F-STORY-08 | 删除附件 | 软删 attachment；须属于该需求 | `story.attach` |
+| F-STORY-07 | 上传附件 | 见 §9；planning 可挂需求；可交付后仅备注附件 | `story.attach` |
+| F-STORY-08 | 删除附件 | 软删；可交付需求级附件与备注附件均不可删 | `story.attach` |
 | F-STORY-09 | 下载/预览附件 | 有需求查看权即可；图片可预览，其余下载 | `story.list` |
+| F-STORY-10 | 追加备注 | 仅可交付；TipTap+图/附件；定稿后不可改删 | `story.edit` / `story.attach` |
 
 状态机：`draft → active → closed`（可重开）
 

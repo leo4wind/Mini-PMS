@@ -3,6 +3,7 @@
     <template #header-extra>
       <n-upload
         v-if="canUpload"
+        multiple
         :show-file-list="false"
         :custom-request="handleUpload"
       >

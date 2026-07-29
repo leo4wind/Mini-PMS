@@ -80,7 +80,7 @@ type Story struct {
 	ProductID   uint64    `gorm:"not null;index" json:"productId"`
 	Type        string    `gorm:"type:enum('planning','story');not null;default:planning" json:"type"`
 	Title       string    `gorm:"size:255;not null" json:"title"`
-	Description *string   `gorm:"type:text" json:"description"`
+	Description *string   `gorm:"type:mediumtext" json:"description"`
 	Pri         uint8     `gorm:"not null;default:3" json:"pri"`
 	Status      string    `gorm:"type:enum('draft','active','closed');not null;default:draft" json:"status"`
 	Estimate    *float64  `gorm:"type:decimal(10,2)" json:"estimate"`
@@ -92,6 +92,18 @@ type Story struct {
 }
 
 func (Story) TableName() string { return "story" }
+
+type StoryRemark struct {
+	ID        uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
+	StoryID   uint64    `gorm:"not null;index" json:"storyId"`
+	Content   *string   `gorm:"type:mediumtext" json:"content"`
+	Finalized uint8     `gorm:"not null;default:0" json:"finalized"`
+	CreatedBy uint64    `gorm:"not null" json:"createdBy"`
+	CreatedAt time.Time `json:"createdAt"`
+	Deleted   uint8     `gorm:"not null;default:0" json:"-"`
+}
+
+func (StoryRemark) TableName() string { return "story_remark" }
 
 type Project struct {
 	ID          uint64     `gorm:"primaryKey;autoIncrement" json:"id"`
@@ -162,7 +174,7 @@ func (Bug) TableName() string { return "bug" }
 
 type Attachment struct {
 	ID           uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
-	ObjectType   string    `gorm:"type:enum('story','bug');not null;index:idx_attachment_object" json:"objectType"`
+	ObjectType   string    `gorm:"type:enum('story','bug','story_remark');not null;index:idx_attachment_object" json:"objectType"`
 	ObjectID     uint64    `gorm:"not null;index:idx_attachment_object" json:"objectId"`
 	OriginalName string    `gorm:"size:255;not null" json:"originalName"`
 	StoredName   string    `gorm:"size:255;uniqueIndex;not null" json:"-"`

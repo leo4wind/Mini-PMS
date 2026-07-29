@@ -45,7 +45,15 @@
       <n-input v-model:value="keyword" placeholder="搜索标题" style="width: 200px" clearable />
       <n-button @click="load">查询</n-button>
     </n-space>
-    <n-data-table :columns="columns" :data="list" :loading="loading" :pagination="pagination" remote @update:page="onPage" />
+    <n-data-table
+      :columns="columns"
+      :data="list"
+      :loading="loading"
+      :pagination="pagination"
+      remote
+      @update:page="onPage"
+      @update:sorter="onSorterUpdate"
+    />
 
     <EntityDrawer :show="drawerOpen" :title="title" :width="width" @update:show="onUpdateShow">
       <router-view />
@@ -54,10 +62,10 @@
 </template>
 
 <script setup lang="ts">
-import { h, onMounted, reactive, ref } from 'vue'
+import { computed, h, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NButton, NSpace, useDialog, useMessage } from 'naive-ui'
-import type { DataTableColumns } from 'naive-ui'
+import type { DataTableColumns, DataTableSortState } from 'naive-ui'
 import { listBugs, deleteBug, listProjects, listSprints, listStories, listUsers } from '@/api'
 import { bugStatusMap } from '@/constants/labels'
 import { useAuthStore } from '@/stores/auth'
@@ -99,7 +107,12 @@ const sprintOptions = ref<{ label: string; value: number }[]>([])
 const storyOptions = ref<{ label: string; value: number }[]>([])
 const assigneeOptions = ref<{ label: string; value: string }[]>([])
 const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0 })
+const sortState = reactive<{ columnKey: string | null; order: 'ascend' | 'descend' | false }>({
+  columnKey: null,
+  order: false,
+})
 
+const sortableKeys = new Set(['severity', 'pri', 'status'])
 const statusOptions = Object.entries(bugStatusMap).map(([value, label]) => ({ label, value }))
 const priOptions = [1, 2, 3, 4].map((v) => ({ label: String(v), value: String(v) }))
 
@@ -108,13 +121,36 @@ function renderUser(u: any) {
   return u.realname || u.account || '-'
 }
 
-const columns: DataTableColumns<any> = [
+function sortOrderOf(key: string) {
+  return sortState.columnKey === key ? sortState.order : false
+}
+
+const columns = computed<DataTableColumns<any>>(() => [
   { title: 'ID', key: 'id', width: 70 },
   { title: '标题', key: 'title', ellipsis: { tooltip: true } },
   { title: '产品', key: 'productName', width: 120 },
-  { title: '严重程度', key: 'severity', width: 90 },
-  { title: '优先级', key: 'pri', width: 80 },
-  { title: '状态', key: 'status', width: 90, render: (r) => bugStatusMap[r.status] || r.status },
+  {
+    title: '严重程度',
+    key: 'severity',
+    width: 110,
+    sorter: true,
+    sortOrder: sortOrderOf('severity'),
+  },
+  {
+    title: '优先级',
+    key: 'pri',
+    width: 100,
+    sorter: true,
+    sortOrder: sortOrderOf('pri'),
+  },
+  {
+    title: '状态',
+    key: 'status',
+    width: 100,
+    sorter: true,
+    sortOrder: sortOrderOf('status'),
+    render: (r) => bugStatusMap[r.status] || r.status,
+  },
   { title: '指派人', key: 'assignee', width: 100, render: (r) => renderUser(r.assignee) },
   { title: '创建人', key: 'creator', width: 100, render: (r) => renderUser(r.creator) },
   { title: '关联需求', key: 'storyId', width: 90, render: (r) => (r.storyId ? `#${r.storyId}` : '-') },
@@ -137,7 +173,7 @@ const columns: DataTableColumns<any> = [
       })
     },
   },
-]
+])
 
 function goCreate() {
   const q = new URLSearchParams()
@@ -202,10 +238,23 @@ function onProjectChange() {
   loadSprints()
 }
 
+function onSorterUpdate(sorter: DataTableSortState | DataTableSortState[] | null) {
+  const s = Array.isArray(sorter) ? sorter[0] ?? null : sorter
+  if (!s || !s.order || !sortableKeys.has(String(s.columnKey))) {
+    sortState.columnKey = null
+    sortState.order = false
+  } else {
+    sortState.columnKey = String(s.columnKey)
+    sortState.order = s.order
+  }
+  pagination.page = 1
+  load()
+}
+
 async function load() {
   loading.value = true
   try {
-    const res: any = await listBugs({
+    const params: Record<string, unknown> = {
       page: pagination.page,
       pageSize: pagination.pageSize,
       productId: productId.value || undefined,
@@ -217,7 +266,12 @@ async function load() {
       pri: pri.value || undefined,
       assignedTo: assignedTo.value || undefined,
       keyword: keyword.value || undefined,
-    })
+    }
+    if (sortState.columnKey && sortState.order) {
+      params.sortBy = sortState.columnKey
+      params.sortOrder = sortState.order === 'ascend' ? 'asc' : 'desc'
+    }
+    const res: any = await listBugs(params)
     list.value = res.data.list || []
     pagination.itemCount = res.data.total || 0
   } catch (e: any) {

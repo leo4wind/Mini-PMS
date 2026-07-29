@@ -40,7 +40,7 @@ func (h *BugHandler) List(c *gin.Context) {
 		parseUintQuery(c, "sprintId"),
 		parseUintQuery(c, "storyId"),
 		c.Query("status"), c.Query("severity"), c.Query("pri"),
-		assignedTo, c.Query("keyword"))
+		assignedTo, c.Query("keyword"), c.Query("sortBy"), c.Query("sortOrder"))
 	if err != nil {
 		response.Fail(c, 500, 50000, err.Error())
 		return

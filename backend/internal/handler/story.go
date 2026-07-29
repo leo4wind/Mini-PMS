@@ -78,6 +78,10 @@ func (h *StoryHandler) Update(c *gin.Context) {
 			response.FailCode(c, 42201, err.Error())
 			return
 		}
+		if strings.Contains(err.Error(), "可交付需求不可编辑") {
+			response.FailCode(c, 42208, err.Error())
+			return
+		}
 		response.BadRequest(c, err.Error())
 		return
 	}
