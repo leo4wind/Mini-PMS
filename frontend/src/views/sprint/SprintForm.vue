@@ -1,36 +1,34 @@
 <template>
-  <n-card :title="isEdit ? '编辑迭代' : '新建迭代'" style="max-width: 640px">
-    <n-form @submit.prevent="onSubmit">
-      <n-form-item label="所属项目" required>
-        <n-select
-          v-model:value="form.projectId"
-          :options="projectOptions"
-          filterable
-          placeholder="选择项目"
-          :disabled="isEdit"
-        />
-      </n-form-item>
-      <n-form-item label="名称" required>
-        <n-input v-model:value="form.name" />
-      </n-form-item>
-      <n-form-item label="开始日期">
-        <n-date-picker v-model:formatted-value="form.begin" value-format="yyyy-MM-dd" type="date" clearable style="width: 100%" />
-      </n-form-item>
-      <n-form-item label="结束日期">
-        <n-date-picker v-model:formatted-value="form.end" value-format="yyyy-MM-dd" type="date" clearable style="width: 100%" />
-      </n-form-item>
-      <n-form-item label="目标">
-        <n-input v-model:value="form.goal" type="textarea" />
-      </n-form-item>
-      <n-form-item v-if="isEdit" label="状态">
-        <n-select v-model:value="form.status" :options="statusOptions" />
-      </n-form-item>
-      <n-space>
-        <n-button type="primary" attr-type="submit" :loading="loading">保存</n-button>
-        <n-button @click="$router.back()">取消</n-button>
-      </n-space>
-    </n-form>
-  </n-card>
+  <n-form @submit.prevent="onSubmit">
+    <n-form-item label="所属项目" required>
+      <n-select
+        v-model:value="form.projectId"
+        :options="projectOptions"
+        filterable
+        placeholder="选择项目"
+        :disabled="isEdit"
+      />
+    </n-form-item>
+    <n-form-item label="名称" required>
+      <n-input v-model:value="form.name" />
+    </n-form-item>
+    <n-form-item label="开始日期">
+      <n-date-picker v-model:formatted-value="form.begin" value-format="yyyy-MM-dd" type="date" clearable style="width: 100%" />
+    </n-form-item>
+    <n-form-item label="结束日期">
+      <n-date-picker v-model:formatted-value="form.end" value-format="yyyy-MM-dd" type="date" clearable style="width: 100%" />
+    </n-form-item>
+    <n-form-item label="目标">
+      <n-input v-model:value="form.goal" type="textarea" />
+    </n-form-item>
+    <n-form-item v-if="isEdit" label="状态">
+      <n-select v-model:value="form.status" :options="statusOptions" />
+    </n-form-item>
+    <n-space>
+      <n-button type="primary" attr-type="submit" :loading="loading">保存</n-button>
+      <n-button @click="onCancel">取消</n-button>
+    </n-space>
+  </n-form>
 </template>
 
 <script setup lang="ts">
@@ -39,10 +37,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { createSprint, getSprint, updateSprint, listProjects } from '@/api'
 import { sprintStatusMap } from '@/constants/labels'
+import { useCloseDrawer } from '@/composables/useRouteDrawer'
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const closeDrawer = useCloseDrawer()
 const loading = ref(false)
 const isEdit = computed(() => !!route.params.id && route.name === 'sprint-edit')
 const projectOptions = ref<{ label: string; value: number }[]>([])
@@ -99,6 +99,14 @@ async function load() {
   form.originalStatus = s.status
   if (s.projectName && !projectOptions.value.find((o) => o.value === s.projectId)) {
     projectOptions.value.push({ label: s.projectName, value: s.projectId })
+  }
+}
+
+function onCancel() {
+  if (isEdit.value) {
+    router.push(`/sprints/${route.params.id}`)
+  } else {
+    closeDrawer?.()
   }
 }
 

@@ -1,53 +1,51 @@
 <template>
-  <n-card :title="isEdit ? '编辑缺陷' : '新建缺陷'" style="max-width: 640px">
-    <n-form @submit.prevent="onSubmit">
-      <n-form-item label="所属产品" required>
-        <n-select
-          v-model:value="form.productId"
-          :options="productOptions"
-          filterable
-          placeholder="选择产品"
-          :disabled="isEdit"
-          @update:value="onProductChange"
-        />
-      </n-form-item>
-      <n-form-item label="标题" required>
-        <n-input v-model:value="form.title" />
-      </n-form-item>
-      <n-form-item label="重现步骤">
-        <n-input v-model:value="form.steps" type="textarea" />
-      </n-form-item>
-      <n-form-item label="严重程度">
-        <n-input-number v-model:value="form.severity" :min="1" :max="4" style="width: 100%" />
-      </n-form-item>
-      <n-form-item label="优先级">
-        <n-input-number v-model:value="form.pri" :min="1" :max="4" style="width: 100%" />
-      </n-form-item>
-      <n-form-item label="所属项目">
-        <n-select
-          v-model:value="form.projectId"
-          :options="projectOptions"
-          clearable
-          filterable
-          placeholder="可选"
-          @update:value="onProjectChange"
-        />
-      </n-form-item>
-      <n-form-item label="所属迭代">
-        <n-select v-model:value="form.sprintId" :options="sprintOptions" clearable filterable placeholder="可选" />
-      </n-form-item>
-      <n-form-item label="关联需求">
-        <n-select v-model:value="form.storyId" :options="storyOptions" clearable filterable placeholder="可选" />
-      </n-form-item>
-      <n-form-item label="指派人">
-        <n-select v-model:value="form.assignedTo" :options="userOptions" clearable filterable placeholder="可选" />
-      </n-form-item>
-      <n-space>
-        <n-button type="primary" attr-type="submit" :loading="loading">保存</n-button>
-        <n-button @click="$router.back()">取消</n-button>
-      </n-space>
-    </n-form>
-  </n-card>
+  <n-form @submit.prevent="onSubmit">
+    <n-form-item label="所属产品" required>
+      <n-select
+        v-model:value="form.productId"
+        :options="productOptions"
+        filterable
+        placeholder="选择产品"
+        :disabled="isEdit"
+        @update:value="onProductChange"
+      />
+    </n-form-item>
+    <n-form-item label="标题" required>
+      <n-input v-model:value="form.title" />
+    </n-form-item>
+    <n-form-item label="重现步骤">
+      <n-input v-model:value="form.steps" type="textarea" />
+    </n-form-item>
+    <n-form-item label="严重程度">
+      <n-input-number v-model:value="form.severity" :min="1" :max="4" style="width: 100%" />
+    </n-form-item>
+    <n-form-item label="优先级">
+      <n-input-number v-model:value="form.pri" :min="1" :max="4" style="width: 100%" />
+    </n-form-item>
+    <n-form-item label="所属项目">
+      <n-select
+        v-model:value="form.projectId"
+        :options="projectOptions"
+        clearable
+        filterable
+        placeholder="可选"
+        @update:value="onProjectChange"
+      />
+    </n-form-item>
+    <n-form-item label="所属迭代">
+      <n-select v-model:value="form.sprintId" :options="sprintOptions" clearable filterable placeholder="可选" />
+    </n-form-item>
+    <n-form-item label="关联需求">
+      <n-select v-model:value="form.storyId" :options="storyOptions" clearable filterable placeholder="可选" />
+    </n-form-item>
+    <n-form-item label="指派人">
+      <n-select v-model:value="form.assignedTo" :options="userOptions" clearable filterable placeholder="可选" />
+    </n-form-item>
+    <n-space>
+      <n-button type="primary" attr-type="submit" :loading="loading">保存</n-button>
+      <n-button @click="onCancel">取消</n-button>
+    </n-space>
+  </n-form>
 </template>
 
 <script setup lang="ts">
@@ -64,10 +62,12 @@ import {
   listStories,
   listUsers,
 } from '@/api'
+import { useCloseDrawer } from '@/composables/useRouteDrawer'
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const closeDrawer = useCloseDrawer()
 const loading = ref(false)
 const isEdit = computed(() => !!route.params.id && route.name === 'bug-edit')
 
@@ -174,6 +174,14 @@ async function load() {
   await loadProjects()
   await loadSprints()
   await loadStories()
+}
+
+function onCancel() {
+  if (isEdit.value) {
+    router.push(`/bugs/${route.params.id}`)
+  } else {
+    closeDrawer?.()
+  }
 }
 
 async function onSubmit() {

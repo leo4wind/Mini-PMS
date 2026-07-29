@@ -1,42 +1,40 @@
 <template>
-  <n-card :title="isEdit ? '编辑需求' : '新建需求'" style="max-width: 640px">
-    <n-form @submit.prevent="onSubmit">
-      <n-form-item label="所属产品" required>
-        <n-select
-          v-model:value="form.productId"
-          :options="productOptions"
-          filterable
-          placeholder="选择产品"
-          :disabled="isEdit"
-        />
-      </n-form-item>
-      <n-form-item label="类型" required>
-        <n-select v-model:value="form.type" :options="typeOptions" :disabled="isEdit && form.originalType === 'story'" />
-      </n-form-item>
-      <n-form-item label="标题" required>
-        <n-input v-model:value="form.title" />
-      </n-form-item>
-      <n-form-item label="描述">
-        <n-input v-model:value="form.description" type="textarea" />
-      </n-form-item>
-      <n-form-item label="优先级">
-        <n-input-number v-model:value="form.pri" :min="1" :max="4" style="width: 100%" />
-      </n-form-item>
-      <n-form-item label="估算">
-        <n-input-number v-model:value="form.estimate" :min="0" :step="0.5" style="width: 100%" />
-      </n-form-item>
-      <n-form-item label="指派人">
-        <n-select v-model:value="form.assignedTo" :options="userOptions" clearable filterable placeholder="可选" />
-      </n-form-item>
-      <n-form-item v-if="isEdit" label="状态">
-        <n-select v-model:value="form.status" :options="statusOptions" />
-      </n-form-item>
-      <n-space>
-        <n-button type="primary" attr-type="submit" :loading="loading">保存</n-button>
-        <n-button @click="$router.back()">取消</n-button>
-      </n-space>
-    </n-form>
-  </n-card>
+  <n-form @submit.prevent="onSubmit">
+    <n-form-item label="所属产品" required>
+      <n-select
+        v-model:value="form.productId"
+        :options="productOptions"
+        filterable
+        placeholder="选择产品"
+        :disabled="isEdit"
+      />
+    </n-form-item>
+    <n-form-item label="类型" required>
+      <n-select v-model:value="form.type" :options="typeOptions" :disabled="isEdit && form.originalType === 'story'" />
+    </n-form-item>
+    <n-form-item label="标题" required>
+      <n-input v-model:value="form.title" />
+    </n-form-item>
+    <n-form-item label="描述">
+      <n-input v-model:value="form.description" type="textarea" />
+    </n-form-item>
+    <n-form-item label="优先级">
+      <n-input-number v-model:value="form.pri" :min="1" :max="4" style="width: 100%" />
+    </n-form-item>
+    <n-form-item label="估算">
+      <n-input-number v-model:value="form.estimate" :min="0" :step="0.5" style="width: 100%" />
+    </n-form-item>
+    <n-form-item label="指派人">
+      <n-select v-model:value="form.assignedTo" :options="userOptions" clearable filterable placeholder="可选" />
+    </n-form-item>
+    <n-form-item v-if="isEdit" label="状态">
+      <n-select v-model:value="form.status" :options="statusOptions" />
+    </n-form-item>
+    <n-space>
+      <n-button type="primary" attr-type="submit" :loading="loading">保存</n-button>
+      <n-button @click="onCancel">取消</n-button>
+    </n-space>
+  </n-form>
 </template>
 
 <script setup lang="ts">
@@ -45,10 +43,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { createStory, getStory, updateStory, listProducts, listUsers } from '@/api'
 import { storyStatusMap } from '@/constants/labels'
+import { useCloseDrawer } from '@/composables/useRouteDrawer'
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const closeDrawer = useCloseDrawer()
 const loading = ref(false)
 const isEdit = computed(() => !!route.params.id && route.name === 'story-edit')
 const productOptions = ref<{ label: string; value: number }[]>([])
@@ -115,6 +115,14 @@ async function load() {
   form.originalStatus = s.status
   if (s.productName && !productOptions.value.find((o) => o.value === s.productId)) {
     productOptions.value.push({ label: s.productName, value: s.productId })
+  }
+}
+
+function onCancel() {
+  if (isEdit.value) {
+    router.push(`/stories/${route.params.id}`)
+  } else {
+    closeDrawer?.()
   }
 }
 

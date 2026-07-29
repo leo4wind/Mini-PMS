@@ -1,22 +1,18 @@
 <template>
   <n-space vertical v-if="sprint">
-    <n-page-header :title="sprint.name" @back="$router.push(backTo)">
-      <template #extra>
-        <n-space>
-          <n-button v-if="auth.has('sprint.edit')" @click="$router.push(`/sprints/${sprint.id}/edit`)">编辑</n-button>
-          <n-button
-            v-for="a in statusActions"
-            :key="a.value"
-            :type="a.value === 'closed' ? 'warning' : 'primary'"
-            :loading="statusLoading"
-            @click="changeStatus(a.value)"
-          >
-            {{ a.label }}
-          </n-button>
-          <n-button v-if="auth.has('sprint.delete')" type="error" @click="onDelete">删除</n-button>
-        </n-space>
-      </template>
-    </n-page-header>
+    <n-space justify="end" wrap>
+      <n-button v-if="auth.has('sprint.edit')" @click="$router.push(`/sprints/${sprint.id}/edit`)">编辑</n-button>
+      <n-button
+        v-for="a in statusActions"
+        :key="a.value"
+        :type="a.value === 'closed' ? 'warning' : 'primary'"
+        :loading="statusLoading"
+        @click="changeStatus(a.value)"
+      >
+        {{ a.label }}
+      </n-button>
+      <n-button v-if="auth.has('sprint.delete')" type="error" @click="onDelete">删除</n-button>
+    </n-space>
 
     <n-descriptions bordered :column="2" label-placement="left">
       <n-descriptions-item label="ID">{{ sprint.id }}</n-descriptions-item>
@@ -108,7 +104,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, ref } from 'vue'
+import { computed, h, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NButton, NSpace, useDialog, useMessage } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
@@ -124,6 +120,7 @@ import {
 } from '@/api'
 import { storyTypeMap, storyStatusMap, sprintStatusMap, bugStatusMap } from '@/constants/labels'
 import { useAuthStore } from '@/stores/auth'
+import { useSyncDrawerTitle } from '@/composables/useRouteDrawer'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -145,6 +142,8 @@ const candidatesLoading = ref(false)
 const candidateKeyword = ref('')
 const selectedStoryIds = ref<number[]>([])
 const linkLoading = ref(false)
+
+useSyncDrawerTitle(() => sprint.value?.name, '迭代详情')
 
 const actionLabel: Record<string, string> = {
   doing: '开始',
@@ -359,5 +358,5 @@ function onUnlink(row: any) {
   })
 }
 
-onMounted(load)
+watch(() => route.params.id, load, { immediate: true })
 </script>

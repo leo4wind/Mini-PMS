@@ -1,42 +1,40 @@
 <template>
-  <n-card :title="isEdit ? '编辑项目' : '新建项目'" style="max-width: 640px">
-    <n-form @submit.prevent="onSubmit">
-      <n-form-item label="所属产品" required>
-        <n-select
-          v-model:value="form.productId"
-          :options="productOptions"
-          filterable
-          placeholder="选择产品"
-          :disabled="isEdit"
-        />
-      </n-form-item>
-      <n-form-item label="名称" required>
-        <n-input v-model:value="form.name" />
-      </n-form-item>
-      <n-form-item label="代号">
-        <n-input v-model:value="form.code" />
-      </n-form-item>
-      <n-form-item v-if="isEdit" label="状态">
-        <n-select v-model:value="form.status" :options="statusOptions" />
-      </n-form-item>
-      <n-form-item label="开始日期">
-        <n-date-picker v-model:formatted-value="form.begin" value-format="yyyy-MM-dd" type="date" clearable style="width: 100%" />
-      </n-form-item>
-      <n-form-item label="结束日期">
-        <n-date-picker v-model:formatted-value="form.end" value-format="yyyy-MM-dd" type="date" clearable style="width: 100%" />
-      </n-form-item>
-      <n-form-item label="项目经理">
-        <n-select v-model:value="form.pm" :options="userOptions" clearable filterable placeholder="可选" />
-      </n-form-item>
-      <n-form-item label="描述">
-        <n-input v-model:value="form.description" type="textarea" />
-      </n-form-item>
-      <n-space>
-        <n-button type="primary" attr-type="submit" :loading="loading">保存</n-button>
-        <n-button @click="$router.back()">取消</n-button>
-      </n-space>
-    </n-form>
-  </n-card>
+  <n-form @submit.prevent="onSubmit">
+    <n-form-item label="所属产品" required>
+      <n-select
+        v-model:value="form.productId"
+        :options="productOptions"
+        filterable
+        placeholder="选择产品"
+        :disabled="isEdit"
+      />
+    </n-form-item>
+    <n-form-item label="名称" required>
+      <n-input v-model:value="form.name" />
+    </n-form-item>
+    <n-form-item label="代号">
+      <n-input v-model:value="form.code" />
+    </n-form-item>
+    <n-form-item v-if="isEdit" label="状态">
+      <n-select v-model:value="form.status" :options="statusOptions" />
+    </n-form-item>
+    <n-form-item label="开始日期">
+      <n-date-picker v-model:formatted-value="form.begin" value-format="yyyy-MM-dd" type="date" clearable style="width: 100%" />
+    </n-form-item>
+    <n-form-item label="结束日期">
+      <n-date-picker v-model:formatted-value="form.end" value-format="yyyy-MM-dd" type="date" clearable style="width: 100%" />
+    </n-form-item>
+    <n-form-item label="项目经理">
+      <n-select v-model:value="form.pm" :options="userOptions" clearable filterable placeholder="可选" />
+    </n-form-item>
+    <n-form-item label="描述">
+      <n-input v-model:value="form.description" type="textarea" />
+    </n-form-item>
+    <n-space>
+      <n-button type="primary" attr-type="submit" :loading="loading">保存</n-button>
+      <n-button @click="onCancel">取消</n-button>
+    </n-space>
+  </n-form>
 </template>
 
 <script setup lang="ts">
@@ -44,10 +42,12 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { createProject, getProject, updateProject, listProducts, listUsers } from '@/api'
+import { useCloseDrawer } from '@/composables/useRouteDrawer'
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const closeDrawer = useCloseDrawer()
 const loading = ref(false)
 const isEdit = computed(() => !!route.params.id && route.name === 'project-edit')
 const productOptions = ref<{ label: string; value: number }[]>([])
@@ -118,9 +118,16 @@ async function load() {
   form.description = p.description
   form.status = p.status
   form.originalStatus = p.status
-  // ensure closed product still shows in select when editing
   if (p.productName && !productOptions.value.find((o) => o.value === p.productId)) {
     productOptions.value.push({ label: p.productName, value: p.productId })
+  }
+}
+
+function onCancel() {
+  if (isEdit.value) {
+    router.push(`/projects/${route.params.id}`)
+  } else {
+    closeDrawer?.()
   }
 }
 

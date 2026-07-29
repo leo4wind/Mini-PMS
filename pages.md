@@ -24,25 +24,25 @@
 | `/login` | 登录 | — | F-AUTH-01 |
 | `/dashboard` | 工作台 | `dashboard` | — |
 | `/products` | 产品列表 | `product.list` | F-PROD-01 |
-| `/products/new` | 新建产品 | `product.create` | F-PROD-02/06 |
-| `/products/:id` | 产品详情 | `product.list` | F-PROD-03~05 |
-| `/products/:id/edit` | 编辑产品 | `product.edit` | F-PROD-03 |
+| `/products/new` | 新建产品（右侧抽屉） | `product.create` | F-PROD-02/06 |
+| `/products/:id` | 产品详情（右侧抽屉） | `product.list` | F-PROD-03~05 |
+| `/products/:id/edit` | 编辑产品（右侧抽屉） | `product.edit` | F-PROD-03 |
 | `/stories` | 需求列表 | `story.list` | F-STORY-01 |
-| `/stories/new` | 新建需求 | `story.create` | F-STORY-02 |
-| `/stories/:id` | 需求详情 | `story.list` | F-STORY-03~09 |
-| `/stories/:id/edit` | 编辑需求 | `story.edit` | F-STORY-03~05 |
+| `/stories/new` | 新建需求（右侧抽屉） | `story.create` | F-STORY-02 |
+| `/stories/:id` | 需求详情（右侧抽屉） | `story.list` | F-STORY-03~09 |
+| `/stories/:id/edit` | 编辑需求（右侧抽屉） | `story.edit` | F-STORY-03~05 |
 | `/projects` | 项目列表 | `project.list` | F-PRJ-01 |
-| `/projects/new` | 新建项目 | `project.create` | F-PRJ-02 |
-| `/projects/:id` | 项目详情 | `project.list` | F-PRJ-03~05 |
-| `/projects/:id/edit` | 编辑项目 | `project.edit` | F-PRJ-03/04 |
+| `/projects/new` | 新建项目（右侧抽屉） | `project.create` | F-PRJ-02 |
+| `/projects/:id` | 项目详情（右侧抽屉） | `project.list` | F-PRJ-03~05 |
+| `/projects/:id/edit` | 编辑项目（右侧抽屉） | `project.edit` | F-PRJ-03/04 |
 | `/sprints` | 迭代列表 | `sprint.list` | F-SPR-01 |
-| `/sprints/new` | 新建迭代 | `sprint.create` | F-SPR-02 |
-| `/sprints/:id` | 迭代详情（含关联需求） | `sprint.list` | F-SPR-03~06 |
-| `/sprints/:id/edit` | 编辑迭代 | `sprint.edit` | F-SPR-03 |
+| `/sprints/new` | 新建迭代（右侧抽屉） | `sprint.create` | F-SPR-02 |
+| `/sprints/:id` | 迭代详情（右侧抽屉，含关联需求） | `sprint.list` | F-SPR-03~06 |
+| `/sprints/:id/edit` | 编辑迭代（右侧抽屉） | `sprint.edit` | F-SPR-03 |
 | `/bugs` | 缺陷列表 | `bug.list` | F-BUG-01 |
-| `/bugs/new` | 新建缺陷 | `bug.create` | F-BUG-02 |
-| `/bugs/:id` | 缺陷详情 | `bug.list` | F-BUG-03~10 |
-| `/bugs/:id/edit` | 编辑缺陷 | `bug.edit` | F-BUG-03 |
+| `/bugs/new` | 新建缺陷（右侧抽屉） | `bug.create` | F-BUG-02 |
+| `/bugs/:id` | 缺陷详情（右侧抽屉） | `bug.list` | F-BUG-03~10 |
+| `/bugs/:id/edit` | 编辑缺陷（右侧抽屉） | `bug.edit` | F-BUG-03 |
 | `/system/users` | 用户列表 | `user.list` | F-USER-01~05 |
 | `/system/roles` | 角色列表 | `role.list` | F-ROLE-01~03 |
 | `/system/roles/:id/menus` | 分配菜单 | `role.assignMenu` | F-ROLE-03 |
@@ -55,10 +55,10 @@
 
 1. **无权限**：侧栏不显示；直链进入显示 403 页。  
 2. **删除/危险操作**：二次确认对话框。  
-3. **新建成功**：优先进详情页；建产品成功**留在产品详情**，Toast 提示「已自动创建项目 xxx1.0」，提供跳转该项目的链接（不自动跳转）。  
+3. **新建成功**：优先进详情抽屉；建产品成功**留在产品详情抽屉**，Toast 提示「已自动创建项目 xxx1.0」，提供跳转该项目的链接（不自动跳转）。  
 4. **人员选择**：下拉展示 `realname (account)`，存 `user_id`。  
 5. **列表分页**：默认每页 20；支持关键词搜索处单独注明。  
-6. **弹窗 vs 独立页**：分配角色、解决缺陷、关联需求用**抽屉/弹窗**；主实体新建/编辑用**独立页**。
+6. **抽屉 vs 弹窗**：产品/需求/项目/迭代/缺陷的查看、新建、编辑用**右侧抽屉**（列表保持挂载，URL 不变可深链）；分配角色、解决缺陷、关联需求等次要操作用**弹窗**；系统用户/角色/菜单 CRUD 继续用弹窗。
 
 ---
 
@@ -99,8 +99,8 @@
 | 按钮 | 权限 | 行为 |
 |------|------|------|
 | 新建 | `product.create` | → `/products/new` |
-| 查看 | `product.list` | → 详情 |
-| 编辑 | `product.edit` | → 编辑页 |
+| 查看 | `product.list` | → 详情抽屉 |
+| 编辑 | `product.edit` | → 编辑抽屉 |
 | 关闭/启用 | `product.edit` | normal↔closed |
 | 删除 | `product.delete` | 确认后软删 |
 

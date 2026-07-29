@@ -1,37 +1,33 @@
 <template>
   <n-space vertical v-if="bug">
-    <n-page-header :title="bug.title" @back="$router.push(backTo)">
-      <template #extra>
-        <n-space>
-          <n-button v-if="auth.has('bug.edit')" @click="$router.push(`/bugs/${bug.id}/edit`)">编辑</n-button>
-          <n-button
-            v-if="auth.has('bug.resolve') && bug.status === 'active'"
-            type="primary"
-            @click="showResolve = true"
-          >
-            解决
-          </n-button>
-          <n-button
-            v-if="auth.has('bug.close') && bug.status === 'resolved'"
-            type="warning"
-            :loading="actionLoading"
-            @click="doClose"
-          >
-            关闭
-          </n-button>
-          <n-button
-            v-if="auth.has('bug.edit') && bug.status !== 'active'"
-            :loading="actionLoading"
-            @click="doActivate"
-          >
-            激活
-          </n-button>
-          <n-button v-if="auth.has('bug.delete') && bug.status === 'active'" type="error" @click="onDelete">
-            删除
-          </n-button>
-        </n-space>
-      </template>
-    </n-page-header>
+    <n-space justify="end" wrap>
+      <n-button v-if="auth.has('bug.edit')" @click="$router.push(`/bugs/${bug.id}/edit`)">编辑</n-button>
+      <n-button
+        v-if="auth.has('bug.resolve') && bug.status === 'active'"
+        type="primary"
+        @click="showResolve = true"
+      >
+        解决
+      </n-button>
+      <n-button
+        v-if="auth.has('bug.close') && bug.status === 'resolved'"
+        type="warning"
+        :loading="actionLoading"
+        @click="doClose"
+      >
+        关闭
+      </n-button>
+      <n-button
+        v-if="auth.has('bug.edit') && bug.status !== 'active'"
+        :loading="actionLoading"
+        @click="doActivate"
+      >
+        激活
+      </n-button>
+      <n-button v-if="auth.has('bug.delete') && bug.status === 'active'" type="error" @click="onDelete">
+        删除
+      </n-button>
+    </n-space>
 
     <n-descriptions bordered :column="2" label-placement="left">
       <n-descriptions-item label="ID">{{ bug.id }}</n-descriptions-item>
@@ -98,13 +94,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDialog, useMessage } from 'naive-ui'
 import { getBug, resolveBug, closeBug, activateBug, deleteBug } from '@/api'
 import AttachmentPanel from '@/components/AttachmentPanel.vue'
 import { bugStatusMap, bugResolutionMap } from '@/constants/labels'
 import { useAuthStore } from '@/stores/auth'
+import { useSyncDrawerTitle } from '@/composables/useRouteDrawer'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -116,6 +113,8 @@ const bug = ref<any>(null)
 const actionLoading = ref(false)
 const showResolve = ref(false)
 const resolution = ref<string | null>(null)
+
+useSyncDrawerTitle(() => bug.value?.title, '缺陷详情')
 
 const resolutionOptions = Object.entries(bugResolutionMap).map(([value, label]) => ({ label, value }))
 
@@ -193,5 +192,5 @@ function onDelete() {
   })
 }
 
-onMounted(load)
+watch(() => route.params.id, load, { immediate: true })
 </script>

@@ -1,44 +1,40 @@
 <template>
   <n-space vertical v-if="story">
-    <n-page-header :title="story.title" @back="$router.push(backTo)">
-      <template #extra>
-        <n-space>
-          <n-button v-if="auth.has('story.edit')" @click="$router.push(`/stories/${story.id}/edit`)">编辑</n-button>
-          <n-button
-            v-if="auth.has('story.edit') && story.status === 'draft'"
-            type="primary"
-            :loading="actionLoading"
-            @click="doStatus('active')"
-          >
-            激活
-          </n-button>
-          <n-button
-            v-if="auth.has('story.edit') && story.status === 'active'"
-            type="warning"
-            :loading="actionLoading"
-            @click="doStatus('closed')"
-          >
-            关闭
-          </n-button>
-          <n-button
-            v-if="auth.has('story.edit') && story.status === 'closed'"
-            type="primary"
-            :loading="actionLoading"
-            @click="doStatus('active')"
-          >
-            重开
-          </n-button>
-          <n-button
-            v-if="auth.has('story.edit') && story.type === 'planning'"
-            :loading="actionLoading"
-            @click="convertToStory"
-          >
-            转为可交付
-          </n-button>
-          <n-button v-if="auth.has('story.delete')" type="error" @click="onDelete">删除</n-button>
-        </n-space>
-      </template>
-    </n-page-header>
+    <n-space justify="end" wrap>
+      <n-button v-if="auth.has('story.edit')" @click="$router.push(`/stories/${story.id}/edit`)">编辑</n-button>
+      <n-button
+        v-if="auth.has('story.edit') && story.status === 'draft'"
+        type="primary"
+        :loading="actionLoading"
+        @click="doStatus('active')"
+      >
+        激活
+      </n-button>
+      <n-button
+        v-if="auth.has('story.edit') && story.status === 'active'"
+        type="warning"
+        :loading="actionLoading"
+        @click="doStatus('closed')"
+      >
+        关闭
+      </n-button>
+      <n-button
+        v-if="auth.has('story.edit') && story.status === 'closed'"
+        type="primary"
+        :loading="actionLoading"
+        @click="doStatus('active')"
+      >
+        重开
+      </n-button>
+      <n-button
+        v-if="auth.has('story.edit') && story.type === 'planning'"
+        :loading="actionLoading"
+        @click="convertToStory"
+      >
+        转为可交付
+      </n-button>
+      <n-button v-if="auth.has('story.delete')" type="error" @click="onDelete">删除</n-button>
+    </n-space>
 
     <n-descriptions bordered :column="2" label-placement="left">
       <n-descriptions-item label="ID">{{ story.id }}</n-descriptions-item>
@@ -79,7 +75,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, ref } from 'vue'
+import { computed, h, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NButton, useDialog, useMessage } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
@@ -87,6 +83,7 @@ import { getStory, updateStory, deleteStory } from '@/api'
 import AttachmentPanel from '@/components/AttachmentPanel.vue'
 import { storyTypeMap, storyStatusMap, sprintStatusMap } from '@/constants/labels'
 import { useAuthStore } from '@/stores/auth'
+import { useSyncDrawerTitle } from '@/composables/useRouteDrawer'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -96,6 +93,8 @@ const dialog = useDialog()
 
 const story = ref<any>(null)
 const actionLoading = ref(false)
+
+useSyncDrawerTitle(() => story.value?.title, '需求详情')
 
 const backTo = computed(() => {
   const pid = story.value?.productId
@@ -168,5 +167,5 @@ function onDelete() {
   })
 }
 
-onMounted(load)
+watch(() => route.params.id, load, { immediate: true })
 </script>

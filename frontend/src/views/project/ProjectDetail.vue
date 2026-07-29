@@ -1,14 +1,10 @@
 <template>
   <n-space vertical v-if="project">
-    <n-page-header :title="project.name" @back="$router.push(backTo)">
-      <template #extra>
-        <n-space>
-          <n-button v-if="auth.has('project.edit')" @click="$router.push(`/projects/${project.id}/edit`)">编辑</n-button>
-          <n-button @click="$router.push(`/sprints?projectId=${project.id}`)">迭代</n-button>
-          <n-button @click="$router.push(`/bugs?projectId=${project.id}`)">缺陷</n-button>
-        </n-space>
-      </template>
-    </n-page-header>
+    <n-space justify="end" wrap>
+      <n-button v-if="auth.has('project.edit')" @click="$router.push(`/projects/${project.id}/edit`)">编辑</n-button>
+      <n-button @click="$router.push(`/sprints?projectId=${project.id}`)">迭代</n-button>
+      <n-button @click="$router.push(`/bugs?projectId=${project.id}`)">缺陷</n-button>
+    </n-space>
 
     <n-tabs type="line" v-model:value="tab">
       <n-tab-pane name="overview" tab="概览">
@@ -83,13 +79,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, ref, watch } from 'vue'
+import { computed, h, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NButton, useMessage } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { getProject, updateProject, listProjectSprints, listProjectStories, listBugs } from '@/api'
 import { storyTypeMap, storyStatusMap, sprintStatusMap, bugStatusMap } from '@/constants/labels'
 import { useAuthStore } from '@/stores/auth'
+import { useSyncDrawerTitle } from '@/composables/useRouteDrawer'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -104,6 +101,8 @@ const stories = ref<any[]>([])
 const storiesLoading = ref(false)
 const bugs = ref<any[]>([])
 const bugsLoading = ref(false)
+
+useSyncDrawerTitle(() => project.value?.name, '项目详情')
 
 const statusMap: Record<string, string> = {
   wait: '未开始',
@@ -131,11 +130,6 @@ const nextActions = computed(() => {
     value: v,
     label: actionLabel[v] || v,
   }))
-})
-
-const backTo = computed(() => {
-  const pid = project.value?.productId
-  return pid ? `/projects?productId=${pid}` : '/projects'
 })
 
 function fmtDate(v: string | null | undefined) {
@@ -190,6 +184,10 @@ async function load() {
   try {
     const res: any = await getProject(route.params.id as string)
     project.value = res.data
+    sprints.value = []
+    stories.value = []
+    bugs.value = []
+    tab.value = 'overview'
   } catch (e: any) {
     message.error(e.message)
   }
@@ -250,5 +248,5 @@ watch(tab, (name) => {
   if (name === 'bugs' && !bugs.value.length) loadBugs()
 })
 
-onMounted(load)
+watch(() => route.params.id, load, { immediate: true })
 </script>

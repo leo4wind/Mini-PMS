@@ -12,6 +12,10 @@
       <n-button @click="load">查询</n-button>
     </n-space>
     <n-data-table :columns="columns" :data="list" :loading="loading" :pagination="pagination" remote @update:page="onPage" />
+
+    <EntityDrawer :show="drawerOpen" :title="title" :width="width" @update:show="onUpdateShow">
+      <router-view />
+    </EntityDrawer>
   </n-space>
 </template>
 
@@ -22,10 +26,22 @@ import { NButton, NSpace, useMessage } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { listProducts, deleteProduct, updateProduct } from '@/api'
 import { useAuthStore } from '@/stores/auth'
+import EntityDrawer from '@/components/EntityDrawer.vue'
+import { useRouteDrawer } from '@/composables/useRouteDrawer'
 
 const auth = useAuthStore()
 const router = useRouter()
 const message = useMessage()
+const { drawerOpen, width, title, onUpdateShow } = useRouteDrawer({
+  listPath: '/products',
+  drawerNames: ['product-new', 'product-detail', 'product-edit'],
+  titles: {
+    'product-new': '新建产品',
+    'product-detail': '产品详情',
+    'product-edit': '编辑产品',
+  },
+  widths: { 'product-detail': 900 },
+})
 const list = ref<any[]>([])
 const loading = ref(false)
 const status = ref<string | null>(null)

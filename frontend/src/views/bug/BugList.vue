@@ -54,6 +54,10 @@
       <n-button @click="load">查询</n-button>
     </n-space>
     <n-data-table :columns="columns" :data="list" :loading="loading" :pagination="pagination" remote @update:page="onPage" />
+
+    <EntityDrawer :show="drawerOpen" :title="title" :width="width" @update:show="onUpdateShow">
+      <router-view />
+    </EntityDrawer>
   </n-space>
 </template>
 
@@ -65,12 +69,24 @@ import type { DataTableColumns } from 'naive-ui'
 import { listBugs, deleteBug, listProducts, listProjects, listSprints, listStories, listUsers } from '@/api'
 import { bugStatusMap } from '@/constants/labels'
 import { useAuthStore } from '@/stores/auth'
+import EntityDrawer from '@/components/EntityDrawer.vue'
+import { useRouteDrawer } from '@/composables/useRouteDrawer'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const dialog = useDialog()
+const { drawerOpen, width, title, onUpdateShow } = useRouteDrawer({
+  listPath: '/bugs',
+  drawerNames: ['bug-new', 'bug-detail', 'bug-edit'],
+  keepQueryKeys: ['productId', 'projectId', 'sprintId', 'storyId', 'status', 'assignedTo'],
+  titles: {
+    'bug-new': '新建缺陷',
+    'bug-detail': '缺陷详情',
+    'bug-edit': '编辑缺陷',
+  },
+})
 
 const list = ref<any[]>([])
 const loading = ref(false)

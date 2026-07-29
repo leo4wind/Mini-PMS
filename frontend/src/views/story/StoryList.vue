@@ -20,6 +20,10 @@
       remote
       @update:page="onPage"
     />
+
+    <EntityDrawer :show="drawerOpen" :title="title" :width="width" @update:show="onUpdateShow">
+      <router-view />
+    </EntityDrawer>
   </n-space>
 </template>
 
@@ -31,12 +35,24 @@ import type { DataTableColumns } from 'naive-ui'
 import { listStories, deleteStory } from '@/api'
 import { storyTypeMap, storyStatusMap } from '@/constants/labels'
 import { useAuthStore } from '@/stores/auth'
+import EntityDrawer from '@/components/EntityDrawer.vue'
+import { useRouteDrawer } from '@/composables/useRouteDrawer'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const dialog = useDialog()
+const { drawerOpen, width, title, onUpdateShow } = useRouteDrawer({
+  listPath: '/stories',
+  drawerNames: ['story-new', 'story-detail', 'story-edit'],
+  keepQueryKeys: ['productId', 'assignedTo', 'type', 'status'],
+  titles: {
+    'story-new': '新建需求',
+    'story-detail': '需求详情',
+    'story-edit': '编辑需求',
+  },
+})
 
 const list = ref<any[]>([])
 const loading = ref(false)

@@ -1,21 +1,19 @@
 <template>
-  <n-card :title="isEdit ? '编辑产品' : '新建产品'" style="max-width: 640px">
-    <n-form @submit.prevent="onSubmit">
-      <n-form-item label="名称" required>
-        <n-input v-model:value="form.name" />
-      </n-form-item>
-      <n-form-item label="代号">
-        <n-input v-model:value="form.code" />
-      </n-form-item>
-      <n-form-item label="描述">
-        <n-input v-model:value="form.description" type="textarea" />
-      </n-form-item>
-      <n-space>
-        <n-button type="primary" attr-type="submit" :loading="loading">保存</n-button>
-        <n-button @click="$router.back()">取消</n-button>
-      </n-space>
-    </n-form>
-  </n-card>
+  <n-form @submit.prevent="onSubmit">
+    <n-form-item label="名称" required>
+      <n-input v-model:value="form.name" />
+    </n-form-item>
+    <n-form-item label="代号">
+      <n-input v-model:value="form.code" />
+    </n-form-item>
+    <n-form-item label="描述">
+      <n-input v-model:value="form.description" type="textarea" />
+    </n-form-item>
+    <n-space>
+      <n-button type="primary" attr-type="submit" :loading="loading">保存</n-button>
+      <n-button @click="onCancel">取消</n-button>
+    </n-space>
+  </n-form>
 </template>
 
 <script setup lang="ts">
@@ -23,10 +21,12 @@ import { onMounted, reactive, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { createProduct, getProduct, updateProduct } from '@/api'
+import { useCloseDrawer } from '@/composables/useRouteDrawer'
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const closeDrawer = useCloseDrawer()
 const loading = ref(false)
 const isEdit = computed(() => !!route.params.id && route.name === 'product-edit')
 
@@ -42,6 +42,14 @@ async function load() {
   form.name = res.data.name
   form.code = res.data.code
   form.description = res.data.description
+}
+
+function onCancel() {
+  if (isEdit.value) {
+    router.push(`/products/${route.params.id}`)
+  } else {
+    closeDrawer?.()
+  }
 }
 
 async function onSubmit() {

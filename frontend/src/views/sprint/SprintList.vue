@@ -9,6 +9,10 @@
       <n-button @click="load">查询</n-button>
     </n-space>
     <n-data-table :columns="columns" :data="list" :loading="loading" :pagination="pagination" remote @update:page="onPage" />
+
+    <EntityDrawer :show="drawerOpen" :title="title" :width="width" @update:show="onUpdateShow">
+      <router-view />
+    </EntityDrawer>
   </n-space>
 </template>
 
@@ -20,12 +24,25 @@ import type { DataTableColumns } from 'naive-ui'
 import { listSprints, deleteSprint } from '@/api'
 import { sprintStatusMap } from '@/constants/labels'
 import { useAuthStore } from '@/stores/auth'
+import EntityDrawer from '@/components/EntityDrawer.vue'
+import { useRouteDrawer } from '@/composables/useRouteDrawer'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const dialog = useDialog()
+const { drawerOpen, width, title, onUpdateShow } = useRouteDrawer({
+  listPath: '/sprints',
+  drawerNames: ['sprint-new', 'sprint-detail', 'sprint-edit'],
+  keepQueryKeys: ['productId', 'projectId', 'status'],
+  titles: {
+    'sprint-new': '新建迭代',
+    'sprint-detail': '迭代详情',
+    'sprint-edit': '编辑迭代',
+  },
+  widths: { 'sprint-detail': 900 },
+})
 
 const list = ref<any[]>([])
 const loading = ref(false)

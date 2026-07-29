@@ -10,6 +10,10 @@
       <n-button @click="load">查询</n-button>
     </n-space>
     <n-data-table :columns="columns" :data="list" :loading="loading" :pagination="pagination" remote @update:page="onPage" />
+
+    <EntityDrawer :show="drawerOpen" :title="title" :width="width" @update:show="onUpdateShow">
+      <router-view />
+    </EntityDrawer>
   </n-space>
 </template>
 
@@ -20,11 +24,24 @@ import { NButton, NSpace, useMessage } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { listProjects, deleteProject } from '@/api'
 import { useAuthStore } from '@/stores/auth'
+import EntityDrawer from '@/components/EntityDrawer.vue'
+import { useRouteDrawer } from '@/composables/useRouteDrawer'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const { drawerOpen, width, title, onUpdateShow } = useRouteDrawer({
+  listPath: '/projects',
+  drawerNames: ['project-new', 'project-detail', 'project-edit'],
+  keepQueryKeys: ['productId'],
+  titles: {
+    'project-new': '新建项目',
+    'project-detail': '项目详情',
+    'project-edit': '编辑项目',
+  },
+  widths: { 'project-detail': 900 },
+})
 const list = ref<any[]>([])
 const loading = ref(false)
 const productId = ref<number | null>(null)
