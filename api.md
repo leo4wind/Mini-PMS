@@ -283,7 +283,7 @@ Body: `name?`, `code?`, `po?`, `description?`, `status?`
 ### GET `/stories`
 
 `story.list`  
-Query: **`productId*` 必填**（缺省 → 42200），`type?`, `status?`, `assignedTo?`（`me` 表示当前用户）, `keyword?`
+Query: `productId?`, `type?`, `status?`, `assignedTo?`（`me` 表示当前用户）, `keyword?`, `sortBy?`（`type`|`pri`|`status`）, `sortOrder?`（`asc`|`desc`；与 sortBy 同时传才生效，否则按 id 倒序）
 
 ### POST `/stories`
 

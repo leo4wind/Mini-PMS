@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"minipms/internal/model"
 
@@ -42,7 +43,13 @@ type SprintBrief struct {
 	Status    string `json:"status"`
 }
 
-func (s *StoryService) List(page, pageSize int, productID uint64, storyType, status, assignedToFilter, keyword string, userID uint64, withMeta bool) (*PageResult, error) {
+var storyListSortCols = map[string]string{
+	"type":   "st.type",
+	"pri":    "st.pri",
+	"status": "st.status",
+}
+
+func (s *StoryService) List(page, pageSize int, productID uint64, storyType, status, assignedToFilter, keyword string, userID uint64, sortBy, sortOrder string, withMeta bool) (*PageResult, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -112,8 +119,18 @@ func (s *StoryService) List(page, pageSize int, productID uint64, storyType, sta
 		dataQ = dataQ.Where("st.title LIKE ? OR st.description LIKE ?", like, like)
 	}
 
+	orderSQL := "st.id DESC"
+	if col, ok := storyListSortCols[sortBy]; ok {
+		switch strings.ToLower(sortOrder) {
+		case "asc":
+			orderSQL = col + " ASC, st.id DESC"
+		case "desc":
+			orderSQL = col + " DESC, st.id DESC"
+		}
+	}
+
 	var rows []row
-	if err := dataQ.Order("st.id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Scan(&rows).Error; err != nil {
+	if err := dataQ.Order(orderSQL).Offset((page - 1) * pageSize).Limit(pageSize).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 

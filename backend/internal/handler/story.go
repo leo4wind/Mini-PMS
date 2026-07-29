@@ -29,7 +29,7 @@ func (h *StoryHandler) List(c *gin.Context) {
 	assignedTo := c.Query("assignedTo")
 	userID := middleware.UserID(c)
 	withMeta := c.Query("withMeta") == "1" || c.Query("withMeta") == "true"
-	res, err := h.svc.List(page, pageSize, productID, c.Query("type"), c.Query("status"), assignedTo, c.Query("keyword"), userID, withMeta)
+	res, err := h.svc.List(page, pageSize, productID, c.Query("type"), c.Query("status"), assignedTo, c.Query("keyword"), userID, c.Query("sortBy"), c.Query("sortOrder"), withMeta)
 	if err != nil {
 		response.Fail(c, 500, 50000, err.Error())
 		return
