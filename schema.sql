@@ -319,15 +319,14 @@ INSERT INTO `role` (`id`, `code`, `name`, `builtin`, `remark`) VALUES
 INSERT INTO `menu` (`id`, `parent_id`, `code`, `name`, `type`, `path`, `icon`, `sort`, `status`) VALUES
   (1,  NULL, 'dashboard',     '工作台',   'menu', '/dashboard',    'dashboard', 10, 'enabled'),
   (2,  NULL, 'product',       '产品',     'dir',  NULL,            'product',   20, 'enabled'),
-  (3,  NULL, 'project',       '项目',     'dir',  NULL,            'project',   30, 'enabled'),
   (4,  NULL, 'qa',            '测试',     'dir',  NULL,            'bug',       40, 'enabled'),
   (5,  NULL, 'system',        '系统',     'dir',  NULL,            'setting',   90, 'enabled'),
 
+  -- 产品目录下：产品/需求/项目/迭代（原「项目」一级目录已并入）
   (10, 2, 'product.list',     '产品列表', 'menu', '/products',     NULL, 10, 'enabled'),
   (11, 2, 'story.list',       '需求列表', 'menu', '/stories',      NULL, 20, 'enabled'),
-
-  (20, 3, 'project.list',     '项目列表', 'menu', '/projects',     NULL, 10, 'enabled'),
-  (21, 3, 'sprint.list',      '迭代列表', 'menu', '/sprints',      NULL, 20, 'enabled'),
+  (20, 2, 'project.list',     '项目列表', 'menu', '/projects',     NULL, 30, 'enabled'),
+  (21, 2, 'sprint.list',      '迭代列表', 'menu', '/sprints',      NULL, 40, 'enabled'),
 
   (30, 4, 'bug.list',         '缺陷列表', 'menu', '/bugs',         NULL, 10, 'enabled'),
 
@@ -379,26 +378,23 @@ SELECT 4, `id` FROM `menu`;
 -- product
 INSERT INTO `role_menu` (`role_id`, `menu_id`) VALUES
   (2, 1),
-  (2, 2), (2, 10), (2, 11),
+  (2, 2), (2, 10), (2, 11), (2, 20), (2, 21),
   (2, 100), (2, 101), (2, 102),
   (2, 110), (2, 111), (2, 112), (2, 113),
-  (2, 3), (2, 20), (2, 21),
   (2, 120), (2, 121), (2, 130), (2, 131), (2, 133),
   (2, 4), (2, 30);
 
 -- dev: readonly product/project/sprint/story + bug handle + bug attach
 INSERT INTO `role_menu` (`role_id`, `menu_id`) VALUES
   (1, 1),
-  (1, 2), (1, 10), (1, 11),
-  (1, 3), (1, 20), (1, 21),
+  (1, 2), (1, 10), (1, 11), (1, 20), (1, 21),
   (1, 4), (1, 30),
   (1, 151), (1, 152), (1, 153), (1, 155);
 
 -- qa：产品列表只读（建缺陷时选产品）+ 需求/项目/迭代只读 + 缺陷全量
 INSERT INTO `role_menu` (`role_id`, `menu_id`) VALUES
   (3, 1),
-  (3, 2), (3, 10), (3, 11),
-  (3, 3), (3, 20), (3, 21),
+  (3, 2), (3, 10), (3, 11), (3, 20), (3, 21),
   (3, 4), (3, 30),
   (3, 150), (3, 151), (3, 152), (3, 153), (3, 154), (3, 155);
 

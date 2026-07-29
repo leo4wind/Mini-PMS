@@ -11,6 +11,7 @@ type Config struct {
 	MySQL  MySQLConfig  `mapstructure:"mysql"`
 	JWT    JWTConfig    `mapstructure:"jwt"`
 	Upload UploadConfig `mapstructure:"upload"`
+	Log    LogConfig    `mapstructure:"log"`
 }
 
 type ServerConfig struct {
@@ -30,6 +31,11 @@ type JWTConfig struct {
 type UploadConfig struct {
 	Dir       string `mapstructure:"dir"`
 	MaxSizeMB int64  `mapstructure:"maxSizeMB"`
+}
+
+type LogConfig struct {
+	// level: info=只打 HTTP；debug=HTTP + SQL
+	Level string `mapstructure:"level"`
 }
 
 func Load(path string) (*Config, error) {
@@ -53,6 +59,9 @@ func Load(path string) (*Config, error) {
 	}
 	if c.Upload.MaxSizeMB == 0 {
 		c.Upload.MaxSizeMB = 20
+	}
+	if c.Log.Level == "" {
+		c.Log.Level = "debug"
 	}
 	return &c, nil
 }

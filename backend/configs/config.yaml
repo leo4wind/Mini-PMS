@@ -2,6 +2,11 @@ server:
   addr: ":8088"
   mode: debug
 
+log:
+  # info: 只打印 HTTP
+  # debug: 打印 HTTP(info) + SQL(debug)
+  level: debug
+
 mysql:
   dsn: "root:1234@tcp(127.0.0.1:3306)/minipms?charset=utf8mb4&parseTime=True&loc=Local"
 

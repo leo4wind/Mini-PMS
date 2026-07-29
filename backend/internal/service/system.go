@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -30,26 +31,62 @@ func (s *SystemService) ListUsers(page, pageSize int, status, keyword string) (*
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
-	q := s.db.Model(&model.User{}).Where("deleted = 0")
+
+	countQ := s.db.Table("`user`").Where("deleted = 0")
 	if status != "" {
-		q = q.Where("status = ?", status)
+		countQ = countQ.Where("status = ?", status)
 	}
 	if keyword != "" {
 		like := "%" + keyword + "%"
-		q = q.Where("account LIKE ? OR realname LIKE ?", like, like)
+		countQ = countQ.Where("account LIKE ? OR realname LIKE ?", like, like)
 	}
 	var total int64
-	if err := q.Count(&total).Error; err != nil {
+	if err := countQ.Count(&total).Error; err != nil {
 		return nil, err
 	}
-	var users []model.User
-	if err := q.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&users).Error; err != nil {
+
+	// 一条 SQL 查出用户 + 角色（JSON 聚合）
+	type row struct {
+		model.User
+		RolesJSON []byte `gorm:"column:roles_json"`
+	}
+	dataQ := s.db.Table("`user` u").
+		Select(`u.id, u.account, u.password_hash, u.realname, u.email, u.status, u.created_at, u.updated_at, u.deleted,
+			COALESCE((
+				SELECT JSON_ARRAYAGG(JSON_OBJECT(
+					'id', r.id,
+					'code', r.code,
+					'name', r.name,
+					'builtin', r.builtin,
+					'remark', r.remark
+				))
+				FROM user_role ur
+				JOIN role r ON r.id = ur.role_id
+				WHERE ur.user_id = u.id
+			), JSON_ARRAY()) AS roles_json`).
+		Where("u.deleted = 0")
+	if status != "" {
+		dataQ = dataQ.Where("u.status = ?", status)
+	}
+	if keyword != "" {
+		like := "%" + keyword + "%"
+		dataQ = dataQ.Where("u.account LIKE ? OR u.realname LIKE ?", like, like)
+	}
+
+	var rows []row
+	if err := dataQ.Order("u.id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
-	list := make([]UserVO, 0, len(users))
-	for _, u := range users {
-		roles, _ := s.rolesOfUser(u.ID)
-		list = append(list, UserVO{User: u, Roles: roles})
+	list := make([]UserVO, 0, len(rows))
+	for _, r := range rows {
+		roles := []model.Role{}
+		if len(r.RolesJSON) > 0 && string(r.RolesJSON) != "null" {
+			_ = json.Unmarshal(r.RolesJSON, &roles)
+		}
+		if roles == nil {
+			roles = []model.Role{}
+		}
+		list = append(list, UserVO{User: r.User, Roles: roles})
 	}
 	return &PageResult{List: list, Page: page, PageSize: pageSize, Total: total}, nil
 }

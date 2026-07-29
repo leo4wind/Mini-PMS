@@ -28,7 +28,8 @@ func (h *StoryHandler) List(c *gin.Context) {
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
 	assignedTo := c.Query("assignedTo")
 	userID := middleware.UserID(c)
-	res, err := h.svc.List(page, pageSize, productID, c.Query("type"), c.Query("status"), assignedTo, c.Query("keyword"), userID)
+	withMeta := c.Query("withMeta") == "1" || c.Query("withMeta") == "true"
+	res, err := h.svc.List(page, pageSize, productID, c.Query("type"), c.Query("status"), assignedTo, c.Query("keyword"), userID, withMeta)
 	if err != nil {
 		response.Fail(c, 500, 50000, err.Error())
 		return

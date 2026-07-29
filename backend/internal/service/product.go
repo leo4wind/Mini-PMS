@@ -22,6 +22,7 @@ type PageResult struct {
 	Page     int         `json:"page"`
 	PageSize int         `json:"pageSize"`
 	Total    int64       `json:"total"`
+	Meta     interface{} `json:"meta,omitempty"`
 }
 
 func (s *ProductService) List(page, pageSize int, status, keyword string) (*PageResult, error) {

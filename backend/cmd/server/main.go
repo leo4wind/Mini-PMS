@@ -7,6 +7,7 @@ import (
 
 	"minipms/internal/config"
 	"minipms/internal/database"
+	"minipms/internal/pkg/applog"
 	"minipms/internal/router"
 )
 
@@ -19,6 +20,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("load config: %v", err)
 	}
+	applog.SetLevel(cfg.Log.Level)
+	applog.Info("log level=%s", applog.LevelName())
 	if err := os.MkdirAll(cfg.Upload.Dir, 0o755); err != nil {
 		log.Fatalf("mkdir upload: %v", err)
 	}
@@ -27,7 +30,7 @@ func main() {
 		log.Fatalf("db: %v", err)
 	}
 	engine := router.Setup(cfg, db)
-	log.Printf("MiniPMS API listening on %s", cfg.Server.Addr)
+	applog.Info("MiniPMS API listening on %s", cfg.Server.Addr)
 	if err := engine.Run(cfg.Server.Addr); err != nil {
 		log.Fatal(err)
 	}

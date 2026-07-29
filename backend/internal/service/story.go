@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"minipms/internal/model"
@@ -40,45 +41,160 @@ type SprintBrief struct {
 	Status    string `json:"status"`
 }
 
-func (s *StoryService) List(page, pageSize int, productID uint64, storyType, status, assignedToFilter, keyword string, userID uint64) (*PageResult, error) {
+func (s *StoryService) List(page, pageSize int, productID uint64, storyType, status, assignedToFilter, keyword string, userID uint64, withMeta bool) (*PageResult, error) {
 	if page < 1 {
 		page = 1
 	}
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
-	q := s.db.Model(&model.Story{}).Where("deleted = 0")
+
+	type row struct {
+		model.Story
+		ProductName     string  `gorm:"column:product_name"`
+		AssigneeAccount *string `gorm:"column:assignee_account"`
+		AssigneeName    *string `gorm:"column:assignee_name"`
+		AttachCount     int64   `gorm:"column:attach_count"`
+		Total           int64   `gorm:"column:total_count"`
+		ProductsJSON    []byte  `gorm:"column:products_json"`
+		AssigneesJSON   []byte  `gorm:"column:assignees_json"`
+	}
+
+	selectCols := `st.*, prod.name AS product_name,
+			au.account AS assignee_account, au.realname AS assignee_name,
+			(SELECT COUNT(*) FROM attachment a WHERE a.object_type = 'story' AND a.object_id = st.id AND a.deleted = 0) AS attach_count,
+			COUNT(*) OVER() AS total_count`
+	if withMeta {
+		// 筛选项与列表同一条 SQL 带回（每行重复，读第一行即可）
+		selectCols += `,
+			meta.products_json AS products_json,
+			meta.assignees_json AS assignees_json`
+	}
+
+	dataQ := s.db.Table("story st").Select(selectCols).
+		Joins("LEFT JOIN product prod ON prod.id = st.product_id").
+		Joins("LEFT JOIN `user` au ON au.id = st.assigned_to AND au.deleted = 0")
+	if withMeta {
+		dataQ = dataQ.Joins(`CROSS JOIN (
+			SELECT
+				COALESCE((
+					SELECT JSON_ARRAYAGG(JSON_OBJECT('id', p.id, 'name', p.name))
+					FROM product p WHERE p.deleted = 0 AND p.status = 'normal'
+				), JSON_ARRAY()) AS products_json,
+				COALESCE((
+					SELECT JSON_ARRAYAGG(JSON_OBJECT('id', u.id, 'account', u.account, 'realname', u.realname))
+					FROM ` + "`user`" + ` u WHERE u.deleted = 0 AND u.status = 'active'
+				), JSON_ARRAY()) AS assignees_json
+		) meta`)
+	}
+	dataQ = dataQ.Where("st.deleted = 0")
 	if productID > 0 {
-		q = q.Where("product_id = ?", productID)
+		dataQ = dataQ.Where("st.product_id = ?", productID)
 	}
 	if storyType != "" {
-		q = q.Where("type = ?", storyType)
+		dataQ = dataQ.Where("st.type = ?", storyType)
 	}
 	if status != "" {
-		q = q.Where("status = ?", status)
+		dataQ = dataQ.Where("st.status = ?", status)
 	}
 	if assignedToFilter == "me" && userID > 0 {
-		q = q.Where("assigned_to = ?", userID)
+		dataQ = dataQ.Where("st.assigned_to = ?", userID)
 	} else if assignedToFilter != "" && assignedToFilter != "me" {
-		q = q.Where("assigned_to = ?", assignedToFilter)
+		dataQ = dataQ.Where("st.assigned_to = ?", assignedToFilter)
 	}
 	if keyword != "" {
 		like := "%" + keyword + "%"
-		q = q.Where("title LIKE ? OR description LIKE ?", like, like)
+		dataQ = dataQ.Where("st.title LIKE ? OR st.description LIKE ?", like, like)
 	}
+
+	var rows []row
+	if err := dataQ.Order("st.id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
 	var total int64
-	if err := q.Count(&total).Error; err != nil {
-		return nil, err
+	if len(rows) > 0 {
+		total = rows[0].Total
+	} else {
+		// 当前页无数据时窗口函数拿不到 total，补一次 count
+		countQ := s.db.Table("story st").Where("st.deleted = 0")
+		if productID > 0 {
+			countQ = countQ.Where("st.product_id = ?", productID)
+		}
+		if storyType != "" {
+			countQ = countQ.Where("st.type = ?", storyType)
+		}
+		if status != "" {
+			countQ = countQ.Where("st.status = ?", status)
+		}
+		if assignedToFilter == "me" && userID > 0 {
+			countQ = countQ.Where("st.assigned_to = ?", userID)
+		} else if assignedToFilter != "" && assignedToFilter != "me" {
+			countQ = countQ.Where("st.assigned_to = ?", assignedToFilter)
+		}
+		if keyword != "" {
+			like := "%" + keyword + "%"
+			countQ = countQ.Where("st.title LIKE ? OR st.description LIKE ?", like, like)
+		}
+		_ = countQ.Count(&total)
 	}
-	var list []model.Story
-	if err := q.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error; err != nil {
-		return nil, err
+
+	vos := make([]StoryVO, 0, len(rows))
+	for _, r := range rows {
+		vo := StoryVO{Story: r.Story, ProductName: r.ProductName, AttachCount: r.AttachCount}
+		if r.Story.AssignedTo != nil {
+			vo.Assignee = &UserBrief{ID: *r.Story.AssignedTo}
+			if r.AssigneeAccount != nil {
+				vo.Assignee.Account = *r.AssigneeAccount
+			}
+			if r.AssigneeName != nil {
+				vo.Assignee.Realname = *r.AssigneeName
+			}
+		}
+		vos = append(vos, vo)
 	}
-	vos := make([]StoryVO, 0, len(list))
-	for _, st := range list {
-		vos = append(vos, s.toListVO(st))
+
+	res := &PageResult{List: vos, Page: page, PageSize: pageSize, Total: total}
+	if withMeta {
+		type productOpt struct {
+			ID   uint64 `json:"id"`
+			Name string `json:"name"`
+		}
+		type userOpt struct {
+			ID       uint64 `json:"id"`
+			Account  string `json:"account"`
+			Realname string `json:"realname"`
+		}
+		products := []productOpt{}
+		assignees := []userOpt{}
+		if len(rows) > 0 {
+			_ = json.Unmarshal(rows[0].ProductsJSON, &products)
+			_ = json.Unmarshal(rows[0].AssigneesJSON, &assignees)
+		} else {
+			type metaRow struct {
+				ProductsJSON  []byte `gorm:"column:products_json"`
+				AssigneesJSON []byte `gorm:"column:assignees_json"`
+			}
+			var mr metaRow
+			_ = s.db.Raw(`SELECT
+				COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', p.id, 'name', p.name)) FROM product p WHERE p.deleted = 0 AND p.status = 'normal'), JSON_ARRAY()) AS products_json,
+				COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('id', u.id, 'account', u.account, 'realname', u.realname)) FROM ` + "`user`" + ` u WHERE u.deleted = 0 AND u.status = 'active'), JSON_ARRAY()) AS assignees_json`).
+				Scan(&mr)
+			_ = json.Unmarshal(mr.ProductsJSON, &products)
+			_ = json.Unmarshal(mr.AssigneesJSON, &assignees)
+		}
+		if products == nil {
+			products = []productOpt{}
+		}
+		if assignees == nil {
+			assignees = []userOpt{}
+		}
+		res.Meta = map[string]interface{}{
+			"products":  products,
+			"assignees": assignees,
+		}
 	}
-	return &PageResult{List: vos, Page: page, PageSize: pageSize, Total: total}, nil
+	return res, nil
 }
 
 func (s *StoryService) toListVO(st model.Story) StoryVO {

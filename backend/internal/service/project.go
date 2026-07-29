@@ -37,28 +37,64 @@ func (s *ProjectService) List(page, pageSize int, productID uint64, status, keyw
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
-	q := s.db.Model(&model.Project{}).Where("deleted = 0")
+	countQ := s.db.Table("project p").Where("p.deleted = 0")
 	if productID > 0 {
-		q = q.Where("product_id = ?", productID)
+		countQ = countQ.Where("p.product_id = ?", productID)
 	}
 	if status != "" {
-		q = q.Where("status = ?", status)
+		countQ = countQ.Where("p.status = ?", status)
 	}
 	if keyword != "" {
 		like := "%" + keyword + "%"
-		q = q.Where("name LIKE ? OR code LIKE ?", like, like)
+		countQ = countQ.Where("p.name LIKE ? OR p.code LIKE ?", like, like)
 	}
 	var total int64
-	if err := q.Count(&total).Error; err != nil {
+	if err := countQ.Count(&total).Error; err != nil {
 		return nil, err
 	}
-	var list []model.Project
-	if err := q.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error; err != nil {
+
+	type row struct {
+		model.Project
+		ProductName   string  `gorm:"column:product_name"`
+		PMAccount     *string `gorm:"column:pm_account"`
+		PMRealname    *string `gorm:"column:pm_realname"`
+		SprintCount   int64   `gorm:"column:sprint_count"`
+	}
+	dataQ := s.db.Table("project p").
+		Select(`p.*, prod.name AS product_name,
+			pm.account AS pm_account, pm.realname AS pm_realname,
+			(SELECT COUNT(*) FROM sprint s WHERE s.project_id = p.id AND s.deleted = 0) AS sprint_count`).
+		Joins("LEFT JOIN product prod ON prod.id = p.product_id").
+		Joins("LEFT JOIN `user` pm ON pm.id = p.pm AND pm.deleted = 0").
+		Where("p.deleted = 0")
+	if productID > 0 {
+		dataQ = dataQ.Where("p.product_id = ?", productID)
+	}
+	if status != "" {
+		dataQ = dataQ.Where("p.status = ?", status)
+	}
+	if keyword != "" {
+		like := "%" + keyword + "%"
+		dataQ = dataQ.Where("p.name LIKE ? OR p.code LIKE ?", like, like)
+	}
+
+	var rows []row
+	if err := dataQ.Order("p.id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
-	vos := make([]ProjectVO, 0, len(list))
-	for _, p := range list {
-		vos = append(vos, s.toVO(p))
+	vos := make([]ProjectVO, 0, len(rows))
+	for _, r := range rows {
+		vo := ProjectVO{Project: r.Project, ProductName: r.ProductName, SprintCount: r.SprintCount}
+		if r.Project.PM != nil {
+			vo.PMUser = &UserBrief{ID: *r.Project.PM}
+			if r.PMAccount != nil {
+				vo.PMUser.Account = *r.PMAccount
+			}
+			if r.PMRealname != nil {
+				vo.PMUser.Realname = *r.PMRealname
+			}
+		}
+		vos = append(vos, vo)
 	}
 	return &PageResult{List: vos, Page: page, PageSize: pageSize, Total: total}, nil
 }

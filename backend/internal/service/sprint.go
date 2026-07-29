@@ -31,28 +31,56 @@ func (s *SprintService) List(page, pageSize int, projectID, productID uint64, st
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
-	q := s.db.Model(&model.Sprint{}).Where("sprint.deleted = 0")
+	countQ := s.db.Table("sprint sp").
+		Joins("JOIN project proj ON proj.id = sp.project_id AND proj.deleted = 0").
+		Where("sp.deleted = 0")
 	if projectID > 0 {
-		q = q.Where("sprint.project_id = ?", projectID)
+		countQ = countQ.Where("sp.project_id = ?", projectID)
 	}
 	if productID > 0 {
-		q = q.Joins("JOIN project ON project.id = sprint.project_id AND project.deleted = 0").
-			Where("project.product_id = ?", productID)
+		countQ = countQ.Where("proj.product_id = ?", productID)
 	}
 	if status != "" {
-		q = q.Where("sprint.status = ?", status)
+		countQ = countQ.Where("sp.status = ?", status)
 	}
 	var total int64
-	if err := q.Count(&total).Error; err != nil {
+	if err := countQ.Count(&total).Error; err != nil {
 		return nil, err
 	}
-	var list []model.Sprint
-	if err := q.Select("sprint.*").Order("sprint.id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&list).Error; err != nil {
+
+	type row struct {
+		model.Sprint
+		ProjectName string `gorm:"column:project_name"`
+		ProductID   uint64 `gorm:"column:product_id"`
+		ProductName string `gorm:"column:product_name"`
+		StoryCount  int64  `gorm:"column:story_count"`
+	}
+	dataQ := s.db.Table("sprint sp").
+		Select(`sp.*, proj.name AS project_name, proj.product_id AS product_id, prod.name AS product_name,
+			(SELECT COUNT(*) FROM sprint_story ss WHERE ss.sprint_id = sp.id) AS story_count`).
+		Joins("JOIN project proj ON proj.id = sp.project_id AND proj.deleted = 0").
+		Joins("LEFT JOIN product prod ON prod.id = proj.product_id").
+		Where("sp.deleted = 0")
+	if projectID > 0 {
+		dataQ = dataQ.Where("sp.project_id = ?", projectID)
+	}
+	if productID > 0 {
+		dataQ = dataQ.Where("proj.product_id = ?", productID)
+	}
+	if status != "" {
+		dataQ = dataQ.Where("sp.status = ?", status)
+	}
+
+	var rows []row
+	if err := dataQ.Order("sp.id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
-	vos := make([]SprintVO, 0, len(list))
-	for _, sp := range list {
-		vos = append(vos, s.toVO(sp))
+	vos := make([]SprintVO, 0, len(rows))
+	for _, r := range rows {
+		vos = append(vos, SprintVO{
+			Sprint: r.Sprint, ProjectName: r.ProjectName,
+			ProductID: r.ProductID, ProductName: r.ProductName, StoryCount: r.StoryCount,
+		})
 	}
 	return &PageResult{List: vos, Page: page, PageSize: pageSize, Total: total}, nil
 }

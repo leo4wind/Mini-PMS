@@ -2,29 +2,13 @@
   <n-space vertical>
     <n-space justify="space-between">
       <n-h2 style="margin: 0">需求列表</n-h2>
-      <n-button v-if="auth.has('story.create')" type="primary" @click="goCreate">新建需求</n-button>
+      <n-button v-if="auth.has('story.create')" type="primary" @click="$router.push('/stories/new')">新建需求</n-button>
     </n-space>
 
     <n-space>
-      <n-select
-        v-model:value="productId"
-        :options="productOptions"
-        clearable
-        filterable
-        placeholder="所属产品"
-        style="width: 200px"
-      />
       <n-select v-model:value="type" :options="typeOptions" clearable placeholder="类型" style="width: 120px" />
       <n-select v-model:value="status" :options="statusOptions" clearable placeholder="状态" style="width: 120px" />
-      <n-select
-        v-model:value="assignedTo"
-        :options="assigneeOptions"
-        clearable
-        filterable
-        placeholder="指派人"
-        style="width: 160px"
-      />
-      <n-input v-model:value="keyword" placeholder="搜索标题" style="width: 200px" clearable />
+      <n-input v-model:value="keyword" placeholder="搜索标题" style="width: 220px" clearable />
       <n-button @click="load">查询</n-button>
     </n-space>
 
@@ -44,7 +28,7 @@ import { h, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NButton, NSpace, useDialog, useMessage } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import { listStories, deleteStory, listProducts, listUsers } from '@/api'
+import { listStories, deleteStory } from '@/api'
 import { storyTypeMap, storyStatusMap } from '@/constants/labels'
 import { useAuthStore } from '@/stores/auth'
 
@@ -56,13 +40,9 @@ const dialog = useDialog()
 
 const list = ref<any[]>([])
 const loading = ref(false)
-const productId = ref<number | null>(null)
 const type = ref<string | null>(null)
 const status = ref<string | null>(null)
-const assignedTo = ref<string | null>(null)
 const keyword = ref('')
-const productOptions = ref<{ label: string; value: number }[]>([])
-const assigneeOptions = ref<{ label: string; value: string }[]>([])
 const pagination = reactive({ page: 1, pageSize: 20, itemCount: 0 })
 
 const typeOptions = Object.entries(storyTypeMap).map(([value, label]) => ({ label, value }))
@@ -104,43 +84,16 @@ const columns: DataTableColumns<any> = [
   },
 ]
 
-function goCreate() {
-  const q = productId.value ? `?productId=${productId.value}` : ''
-  router.push(`/stories/new${q}`)
-}
-
-async function loadProducts() {
-  try {
-    const res: any = await listProducts({ page: 1, pageSize: 100, status: 'normal' })
-    productOptions.value = (res.data.list || []).map((p: any) => ({ label: p.name, value: p.id }))
-  } catch {
-    /* ignore */
-  }
-}
-
-async function loadUsers() {
-  try {
-    const res: any = await listUsers({ page: 1, pageSize: 100, status: 'active' })
-    const opts = (res.data.list || []).map((u: any) => ({
-      label: `${u.realname || u.account} (${u.account})`,
-      value: String(u.id),
-    }))
-    assigneeOptions.value = [{ label: '指派给我', value: 'me' }, ...opts]
-  } catch {
-    /* ignore */
-  }
-}
-
 async function load() {
   loading.value = true
   try {
     const res: any = await listStories({
       page: pagination.page,
       pageSize: pagination.pageSize,
-      productId: productId.value || undefined,
+      productId: route.query.productId ? Number(route.query.productId) : undefined,
       type: type.value || undefined,
       status: status.value || undefined,
-      assignedTo: assignedTo.value || undefined,
+      assignedTo: route.query.assignedTo ? String(route.query.assignedTo) : undefined,
       keyword: keyword.value || undefined,
     })
     list.value = res.data.list || []
@@ -175,13 +128,9 @@ function onDelete(row: any) {
   })
 }
 
-onMounted(async () => {
-  const q = route.query
-  if (q.productId) productId.value = Number(q.productId)
-  if (q.assignedTo) assignedTo.value = String(q.assignedTo)
-  if (q.type) type.value = String(q.type)
-  if (q.status) status.value = String(q.status)
-  await Promise.all([loadProducts(), loadUsers()])
+onMounted(() => {
+  if (route.query.type) type.value = String(route.query.type)
+  if (route.query.status) status.value = String(route.query.status)
   load()
 })
 </script>

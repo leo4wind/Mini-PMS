@@ -13,7 +13,7 @@ import (
 func Setup(cfg *config.Config, db *gorm.DB) *gin.Engine {
 	gin.SetMode(cfg.Server.Mode)
 	r := gin.New()
-	r.Use(gin.Logger(), gin.Recovery(), cors())
+	r.Use(middleware.RequestLog(), gin.Recovery(), cors())
 
 	authSvc := service.NewAuthService(db)
 	permSvc := service.NewPermService(db)
