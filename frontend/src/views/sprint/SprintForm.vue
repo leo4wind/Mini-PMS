@@ -37,12 +37,13 @@ import { useRoute, useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { createSprint, getSprint, updateSprint, listProjects } from '@/api'
 import { sprintStatusMap } from '@/constants/labels'
-import { useCloseDrawer } from '@/composables/useRouteDrawer'
+import { useCloseDrawer, useNotifyListReload } from '@/composables/useRouteDrawer'
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const closeDrawer = useCloseDrawer()
+const notifyListReload = useNotifyListReload()
 const loading = ref(false)
 const isEdit = computed(() => !!route.params.id && route.name === 'sprint-edit')
 const projectOptions = ref<{ label: string; value: number }[]>([])
@@ -130,6 +131,7 @@ async function onSubmit() {
         status: form.status,
       })
       message.success('已保存')
+      notifyListReload()
       router.push(`/sprints/${route.params.id}`)
     } else {
       const res: any = await createSprint({
@@ -140,6 +142,7 @@ async function onSubmit() {
         goal: form.goal || null,
       })
       message.success('已创建')
+      notifyListReload()
       router.push(`/sprints/${res.data.id}`)
     }
   } catch (e: any) {

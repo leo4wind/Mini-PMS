@@ -21,12 +21,13 @@ import { onMounted, reactive, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { createProduct, getProduct, updateProduct } from '@/api'
-import { useCloseDrawer } from '@/composables/useRouteDrawer'
+import { useCloseDrawer, useNotifyListReload } from '@/composables/useRouteDrawer'
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const closeDrawer = useCloseDrawer()
+const notifyListReload = useNotifyListReload()
 const loading = ref(false)
 const isEdit = computed(() => !!route.params.id && route.name === 'product-edit')
 
@@ -67,12 +68,14 @@ async function onSubmit() {
     if (isEdit.value) {
       await updateProduct(route.params.id as string, payload)
       message.success('已保存')
+      notifyListReload()
       router.push(`/products/${route.params.id}`)
     } else {
       const res: any = await createProduct(payload)
       const p = res.data.product
       const proj = res.data.defaultProject
       message.success(`已创建产品，并自动生成项目「${proj.name}」`)
+      notifyListReload()
       router.push(`/products/${p.id}`)
     }
   } catch (e: any) {

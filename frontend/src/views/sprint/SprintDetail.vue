@@ -120,13 +120,14 @@ import {
 } from '@/api'
 import { storyTypeMap, storyStatusMap, sprintStatusMap, bugStatusMap } from '@/constants/labels'
 import { useAuthStore } from '@/stores/auth'
-import { useSyncDrawerTitle } from '@/composables/useRouteDrawer'
+import { useNotifyListReload, useSyncDrawerTitle } from '@/composables/useRouteDrawer'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const dialog = useDialog()
+const notifyListReload = useNotifyListReload()
 
 const sprint = ref<any>(null)
 const tab = ref('stories')
@@ -265,6 +266,7 @@ async function changeStatus(status: string) {
     const res: any = await updateSprint(sprint.value.id, { status })
     sprint.value = res.data
     message.success('状态已更新')
+    notifyListReload()
   } catch (e: any) {
     message.error(e.message)
   } finally {
@@ -282,6 +284,7 @@ function onDelete() {
       try {
         await deleteSprint(sprint.value.id)
         message.success('已删除')
+        notifyListReload()
         router.push(backTo.value)
       } catch (e: any) {
         message.error(e.message)
@@ -328,6 +331,7 @@ async function confirmLink() {
     await linkSprintStories(route.params.id as string, selectedStoryIds.value)
     message.success('已关联')
     linkModal.value = false
+    notifyListReload()
     await loadStories()
     const res: any = await getSprint(route.params.id as string)
     sprint.value = res.data
@@ -348,6 +352,7 @@ function onUnlink(row: any) {
       try {
         await unlinkSprintStory(route.params.id as string, row.id)
         message.success('已移除')
+        notifyListReload()
         await loadStories()
         const res: any = await getSprint(route.params.id as string)
         sprint.value = res.data

@@ -86,12 +86,13 @@ import type { DataTableColumns } from 'naive-ui'
 import { getProject, updateProject, listProjectSprints, listProjectStories, listBugs } from '@/api'
 import { storyTypeMap, storyStatusMap, sprintStatusMap, bugStatusMap } from '@/constants/labels'
 import { useAuthStore } from '@/stores/auth'
-import { useSyncDrawerTitle } from '@/composables/useRouteDrawer'
+import { useNotifyListReload, useSyncDrawerTitle } from '@/composables/useRouteDrawer'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const notifyListReload = useNotifyListReload()
 const project = ref<any>(null)
 const tab = ref('overview')
 const statusLoading = ref(false)
@@ -235,6 +236,7 @@ async function changeStatus(status: string) {
     const res: any = await updateProject(project.value.id, { status })
     project.value = res.data
     message.success('状态已更新')
+    notifyListReload()
   } catch (e: any) {
     message.error(e.message)
   } finally {

@@ -70,7 +70,7 @@ import { listBugs, deleteBug, listProducts, listProjects, listSprints, listStori
 import { bugStatusMap } from '@/constants/labels'
 import { useAuthStore } from '@/stores/auth'
 import EntityDrawer from '@/components/EntityDrawer.vue'
-import { useRouteDrawer } from '@/composables/useRouteDrawer'
+import { provideListReload, useRouteDrawer } from '@/composables/useRouteDrawer'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -238,6 +238,8 @@ async function load() {
     loading.value = false
   }
 }
+
+provideListReload(load)
 
 function onPage(p: number) {
   pagination.page = p

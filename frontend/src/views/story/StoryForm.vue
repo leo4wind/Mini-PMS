@@ -43,12 +43,13 @@ import { useRoute, useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { createStory, getStory, updateStory, listProducts, listUsers } from '@/api'
 import { storyStatusMap } from '@/constants/labels'
-import { useCloseDrawer } from '@/composables/useRouteDrawer'
+import { useCloseDrawer, useNotifyListReload } from '@/composables/useRouteDrawer'
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const closeDrawer = useCloseDrawer()
+const notifyListReload = useNotifyListReload()
 const loading = ref(false)
 const isEdit = computed(() => !!route.params.id && route.name === 'story-edit')
 const productOptions = ref<{ label: string; value: number }[]>([])
@@ -153,6 +154,7 @@ async function onSubmit() {
       }
       await updateStory(route.params.id as string, payload)
       message.success('已保存')
+      notifyListReload()
       router.push(`/stories/${route.params.id}`)
     } else {
       const res: any = await createStory({
@@ -165,6 +167,7 @@ async function onSubmit() {
         assignedTo: form.assignedTo || null,
       })
       message.success('已创建')
+      notifyListReload()
       router.push(`/stories/${res.data.id}`)
     }
   } catch (e: any) {

@@ -42,12 +42,13 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { createProject, getProject, updateProject, listProducts, listUsers } from '@/api'
-import { useCloseDrawer } from '@/composables/useRouteDrawer'
+import { useCloseDrawer, useNotifyListReload } from '@/composables/useRouteDrawer'
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const closeDrawer = useCloseDrawer()
+const notifyListReload = useNotifyListReload()
 const loading = ref(false)
 const isEdit = computed(() => !!route.params.id && route.name === 'project-edit')
 const productOptions = ref<{ label: string; value: number }[]>([])
@@ -158,6 +159,7 @@ async function onSubmit() {
       }
       await updateProject(route.params.id as string, payload)
       message.success('已保存')
+      notifyListReload()
       router.push(`/projects/${route.params.id}`)
     } else {
       const res: any = await createProject({
@@ -170,6 +172,7 @@ async function onSubmit() {
         description: form.description || null,
       })
       message.success('已创建')
+      notifyListReload()
       router.push(`/projects/${res.data.id}`)
     }
   } catch (e: any) {

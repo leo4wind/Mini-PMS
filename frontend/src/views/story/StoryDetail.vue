@@ -83,13 +83,14 @@ import { getStory, updateStory, deleteStory } from '@/api'
 import AttachmentPanel from '@/components/AttachmentPanel.vue'
 import { storyTypeMap, storyStatusMap, sprintStatusMap } from '@/constants/labels'
 import { useAuthStore } from '@/stores/auth'
-import { useSyncDrawerTitle } from '@/composables/useRouteDrawer'
+import { useNotifyListReload, useSyncDrawerTitle } from '@/composables/useRouteDrawer'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const dialog = useDialog()
+const notifyListReload = useNotifyListReload()
 
 const story = ref<any>(null)
 const actionLoading = ref(false)
@@ -129,6 +130,7 @@ async function doStatus(status: string) {
     const res: any = await updateStory(story.value.id, { status })
     story.value = res.data
     message.success('状态已更新')
+    notifyListReload()
   } catch (e: any) {
     message.error(e.message)
   } finally {
@@ -142,6 +144,7 @@ async function convertToStory() {
     const res: any = await updateStory(story.value.id, { type: 'story' })
     story.value = res.data
     message.success('已转为可交付需求')
+    notifyListReload()
   } catch (e: any) {
     message.error(e.message)
   } finally {
@@ -159,6 +162,7 @@ function onDelete() {
       try {
         await deleteStory(story.value.id)
         message.success('已删除')
+        notifyListReload()
         router.push(backTo.value)
       } catch (e: any) {
         message.error(e.message)

@@ -101,13 +101,14 @@ import { getBug, resolveBug, closeBug, activateBug, deleteBug } from '@/api'
 import AttachmentPanel from '@/components/AttachmentPanel.vue'
 import { bugStatusMap, bugResolutionMap } from '@/constants/labels'
 import { useAuthStore } from '@/stores/auth'
-import { useSyncDrawerTitle } from '@/composables/useRouteDrawer'
+import { useNotifyListReload, useSyncDrawerTitle } from '@/composables/useRouteDrawer'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const dialog = useDialog()
+const notifyListReload = useNotifyListReload()
 
 const bug = ref<any>(null)
 const actionLoading = ref(false)
@@ -141,6 +142,7 @@ async function doResolve() {
     showResolve.value = false
     resolution.value = null
     message.success('已标记为已解决')
+    notifyListReload()
   } catch (e: any) {
     message.error(e.message)
   } finally {
@@ -154,6 +156,7 @@ async function doClose() {
     const res: any = await closeBug(bug.value.id)
     bug.value = res.data
     message.success('已关闭')
+    notifyListReload()
   } catch (e: any) {
     message.error(e.message)
   } finally {
@@ -167,6 +170,7 @@ async function doActivate() {
     const res: any = await activateBug(bug.value.id)
     bug.value = res.data
     message.success('已激活')
+    notifyListReload()
   } catch (e: any) {
     message.error(e.message)
   } finally {
@@ -184,6 +188,7 @@ function onDelete() {
       try {
         await deleteBug(bug.value.id)
         message.success('已删除')
+        notifyListReload()
         router.push(backTo.value)
       } catch (e: any) {
         message.error(e.message)

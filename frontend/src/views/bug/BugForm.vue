@@ -62,12 +62,13 @@ import {
   listStories,
   listUsers,
 } from '@/api'
-import { useCloseDrawer } from '@/composables/useRouteDrawer'
+import { useCloseDrawer, useNotifyListReload } from '@/composables/useRouteDrawer'
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const closeDrawer = useCloseDrawer()
+const notifyListReload = useNotifyListReload()
 const loading = ref(false)
 const isEdit = computed(() => !!route.params.id && route.name === 'bug-edit')
 
@@ -212,6 +213,7 @@ async function onSubmit() {
     if (isEdit.value) {
       await updateBug(route.params.id as string, payload)
       message.success('已保存')
+      notifyListReload()
       router.push(`/bugs/${route.params.id}`)
     } else {
       const createPayload = { ...payload }
@@ -221,6 +223,7 @@ async function onSubmit() {
         ...createPayload,
       })
       message.success('已创建')
+      notifyListReload()
       router.push(`/bugs/${res.data.id}`)
     }
   } catch (e: any) {

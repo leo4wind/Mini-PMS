@@ -3,6 +3,7 @@ import { useRoute, useRouter, type LocationQuery } from 'vue-router'
 
 export const drawerTitleKey: InjectionKey<Ref<string>> = Symbol('drawerTitle')
 export const drawerCloseKey: InjectionKey<() => void> = Symbol('drawerClose')
+export const listReloadKey: InjectionKey<() => void | Promise<void>> = Symbol('listReload')
 
 export type RouteDrawerOptions = {
   listPath: string
@@ -67,6 +68,19 @@ export function useRouteDrawer(options: RouteDrawerOptions) {
 
 export function useCloseDrawer() {
   return inject(drawerCloseKey, null)
+}
+
+/** 列表页注册刷新函数，供抽屉内详情/表单变更后调用 */
+export function provideListReload(fn: () => void | Promise<void>) {
+  provide(listReloadKey, fn)
+}
+
+/** 抽屉内数据变更后刷新背后的列表 */
+export function useNotifyListReload() {
+  const reload = inject(listReloadKey, null)
+  return () => {
+    void reload?.()
+  }
 }
 
 /** 详情页把实体标题同步到抽屉；卸载时清空覆盖 */
