@@ -56,13 +56,8 @@ func (s *AttachmentService) UploadForStory(storyID, userID uint64, fileHeader *m
 }
 
 func (s *AttachmentService) UploadForBug(bugID, userID uint64, fileHeader *multipart.FileHeader) (*AttachmentVO, error) {
-	b, err := NewBugService(s.db).Exists(bugID)
-	if err != nil {
+	if _, err := NewBugService(s.db).Exists(bugID); err != nil {
 		return nil, err
-	}
-	// 正文已写入后不可再挂缺陷级附件，请走备注
-	if b.Steps != nil && strings.TrimSpace(*b.Steps) != "" {
-		return nil, fmt.Errorf("缺陷正文已锁定，请追加备注")
 	}
 	return s.doUpload("bug", bugID, userID, fileHeader)
 }
@@ -102,12 +97,6 @@ func (s *AttachmentService) Delete(id uint64) error {
 		st, err := NewStoryService(s.db).Exists(att.ObjectID)
 		if err == nil && st.Type == "story" {
 			return fmt.Errorf("可交付需求附件不可删除")
-		}
-	}
-	if att.ObjectType == "bug" {
-		b, err := NewBugService(s.db).Exists(att.ObjectID)
-		if err == nil && b.Steps != nil && strings.TrimSpace(*b.Steps) != "" {
-			return fmt.Errorf("缺陷附件不可删除")
 		}
 	}
 	res := s.db.Model(&model.Attachment{}).Where("id = ? AND deleted = 0", id).Update("deleted", 1)

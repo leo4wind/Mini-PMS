@@ -2,6 +2,12 @@
   <n-space vertical v-if="bug">
     <n-space justify="end" wrap>
       <n-button
+        v-if="auth.has('bug.edit')"
+        @click="$router.push(`/bugs/${bug.id}/edit`)"
+      >
+        编辑
+      </n-button>
+      <n-button
         v-if="auth.has('bug.resolve') && bug.status === 'active'"
         type="primary"
         @click="openResolve"
@@ -34,10 +40,6 @@
         删除
       </n-button>
     </n-space>
-
-    <n-alert type="info" :bordered="false">
-      缺陷创建后正文已锁定，沟通请追加备注（备注提交后不可修改）。
-    </n-alert>
 
     <n-descriptions bordered :column="2" label-placement="left">
       <n-descriptions-item label="ID">{{ bug.id }}</n-descriptions-item>
@@ -127,8 +129,8 @@
       object-type="bug"
       :object-id="bug.id"
       :attachments="bug.attachments || []"
-      :can-upload="false"
-      :can-delete="false"
+      :can-upload="auth.has('bug.attach')"
+      :can-delete="auth.has('bug.attach')"
       @refresh="load"
     />
 

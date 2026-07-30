@@ -8,6 +8,7 @@
             :options="productOptions"
             filterable
             placeholder="选择产品"
+            :disabled="isEdit"
             @update:value="onProductChange"
           />
         </n-form-item>
@@ -84,6 +85,7 @@
             ref="mdEditorRef"
             v-model="form.steps"
             object-type="bug"
+            :object-id="isEdit ? String(route.params.id) : null"
             :can-upload="auth.has('bug.attach')"
             allow-video
             height="300px"
@@ -92,7 +94,18 @@
         </n-form-item>
       </n-gi>
 
-      <n-gi v-if="auth.has('bug.attach')" :span="2">
+      <n-gi v-if="isEdit && bugId" :span="2">
+        <AttachmentPanel
+          object-type="bug"
+          :object-id="bugId"
+          :attachments="attachments"
+          :can-upload="auth.has('bug.attach')"
+          :can-delete="auth.has('bug.attach')"
+          @refresh="reloadAttachments"
+        />
+      </n-gi>
+
+      <n-gi v-else-if="auth.has('bug.attach')" :span="2">
         <n-form-item label="附件">
           <n-upload v-model:file-list="pendingFileList" multiple :default-upload="false" :max="20">
             <n-button>选择文件（可多选，含 doc/图片/mp4）</n-button>
@@ -109,11 +122,12 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMessage, type UploadFileInfo } from 'naive-ui'
 import {
   createBug,
+  getBug,
   updateBug,
   listProducts,
   listProjects,
@@ -125,6 +139,8 @@ import {
 import { useAuthStore } from '@/stores/auth'
 import { useCloseDrawer, useNotifyListReload } from '@/composables/useRouteDrawer'
 import MarkdownEditor from '@/components/MarkdownEditor.vue'
+import AttachmentPanel from '@/components/AttachmentPanel.vue'
+import type { AttachmentItem } from '@/components/AttachmentPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -133,8 +149,11 @@ const auth = useAuthStore()
 const closeDrawer = useCloseDrawer()
 const notifyListReload = useNotifyListReload()
 const loading = ref(false)
+const isEdit = computed(() => !!route.params.id && route.name === 'bug-edit')
+const bugId = computed(() => (isEdit.value ? Number(route.params.id) : 0))
 const mdEditorRef = ref<InstanceType<typeof MarkdownEditor> | null>(null)
 const pendingFileList = ref<UploadFileInfo[]>([])
+const attachments = ref<AttachmentItem[]>([])
 
 const productOptions = ref<{ label: string; value: number }[]>([])
 const projectOptions = ref<{ label: string; value: number }[]>([])
@@ -208,8 +227,52 @@ function onProjectChange() {
   loadSprints()
 }
 
+async function load() {
+  if (!isEdit.value) {
+    const q = route.query
+    if (q.productId) form.productId = Number(q.productId)
+    if (q.projectId) form.projectId = Number(q.projectId)
+    if (q.sprintId) form.sprintId = Number(q.sprintId)
+    if (q.storyId) form.storyId = Number(q.storyId)
+    if (form.productId) {
+      await loadProjects()
+      await loadSprints()
+      await loadStories()
+    }
+    return
+  }
+  const res: any = await getBug(route.params.id as string)
+  const b = res.data
+  form.productId = b.productId
+  form.title = b.title
+  form.steps = b.steps || ''
+  form.severity = b.severity
+  form.pri = b.pri
+  form.projectId = b.projectId
+  form.sprintId = b.sprintId
+  form.storyId = b.storyId
+  form.assignedTo = b.assignedTo
+  attachments.value = b.attachments || []
+  if (b.productName && !productOptions.value.find((o) => o.value === b.productId)) {
+    productOptions.value.push({ label: b.productName, value: b.productId })
+  }
+  await loadProjects()
+  await loadSprints()
+  await loadStories()
+}
+
+async function reloadAttachments() {
+  if (!isEdit.value) return
+  const res: any = await getBug(route.params.id as string)
+  attachments.value = res.data.attachments || []
+}
+
 function onCancel() {
-  closeDrawer?.()
+  if (isEdit.value) {
+    router.push(`/bugs/${route.params.id}`)
+  } else {
+    closeDrawer?.()
+  }
 }
 
 async function onSubmit() {
@@ -223,39 +286,54 @@ async function onSubmit() {
   }
   loading.value = true
   try {
-    const hasPending = !!mdEditorRef.value?.hasPending()
-    const hasFiles = pendingFileList.value.some((f) => f.file)
-    const stepsHtml = (form.steps || '').trim()
-    // 有媒体/附件时先建空步骤，上传完成后再回写（正文一旦写入即锁定）
-    const deferSteps = hasPending || hasFiles
-    const res: any = await createBug({
-      productId: form.productId,
-      title: form.title,
-      steps: deferSteps ? null : stepsHtml || null,
-      severity: form.severity,
-      pri: form.pri,
-      projectId: form.projectId || null,
-      sprintId: form.sprintId || null,
-      storyId: form.storyId || null,
-      assignedTo: form.assignedTo || null,
-    })
-    const newId = res.data.id
-    let finalSteps = stepsHtml
-    if (hasPending) {
-      finalSteps = await mdEditorRef.value!.flushPending(newId, form.steps || '')
+    if (isEdit.value) {
+      const payload: Record<string, unknown> = {
+        title: form.title,
+        steps: form.steps || null,
+        severity: form.severity,
+        pri: form.pri,
+        projectId: form.projectId || null,
+        sprintId: form.sprintId || null,
+        storyId: form.storyId || null,
+      }
+      if (form.assignedTo == null) {
+        payload.clearAssign = true
+      } else {
+        payload.assignedTo = form.assignedTo
+      }
+      await updateBug(route.params.id as string, payload)
+      message.success('已保存')
+      notifyListReload()
+      router.push(`/bugs/${route.params.id}`)
+    } else {
+      const res: any = await createBug({
+        productId: form.productId,
+        title: form.title,
+        steps: form.steps || null,
+        severity: form.severity,
+        pri: form.pri,
+        projectId: form.projectId || null,
+        sprintId: form.sprintId || null,
+        storyId: form.storyId || null,
+        assignedTo: form.assignedTo || null,
+      })
+      const newId = res.data.id
+      if (mdEditorRef.value?.hasPending()) {
+        const rewritten = await mdEditorRef.value.flushPending(newId, form.steps || '')
+        if (rewritten !== (form.steps || '')) {
+          await updateBug(newId, { steps: rewritten || null })
+        }
+      }
+      for (const f of pendingFileList.value) {
+        if (!f.file) continue
+        const fd = new FormData()
+        fd.append('file', f.file)
+        await uploadBugAttachment(newId, fd)
+      }
+      message.success('已创建')
+      notifyListReload()
+      router.push(`/bugs/${newId}`)
     }
-    for (const f of pendingFileList.value) {
-      if (!f.file) continue
-      const fd = new FormData()
-      fd.append('file', f.file)
-      await uploadBugAttachment(newId, fd)
-    }
-    if (deferSteps) {
-      await updateBug(newId, { steps: finalSteps || '' })
-    }
-    message.success('已创建')
-    notifyListReload()
-    router.push(`/bugs/${newId}`)
   } catch (e: any) {
     message.error(e.message)
   } finally {
@@ -264,11 +342,6 @@ async function onSubmit() {
 }
 
 onMounted(async () => {
-  if (route.name === 'bug-edit') {
-    message.warning('缺陷创建后不可编辑，请在详情追加备注')
-    router.replace(`/bugs/${route.params.id}`)
-    return
-  }
   try {
     await loadProducts()
   } catch (e: any) {
@@ -279,15 +352,10 @@ onMounted(async () => {
   } catch {
     // ignore
   }
-  const q = route.query
-  if (q.productId) form.productId = Number(q.productId)
-  if (q.projectId) form.projectId = Number(q.projectId)
-  if (q.sprintId) form.sprintId = Number(q.sprintId)
-  if (q.storyId) form.storyId = Number(q.storyId)
-  if (form.productId) {
-    await loadProjects()
-    await loadSprints()
-    await loadStories()
+  try {
+    await load()
+  } catch (e: any) {
+    message.error(e.message)
   }
 })
 </script>

@@ -119,13 +119,18 @@ const sortState = reactive<{ columnKey: string | null; order: 'ascend' | 'descen
   order: false,
 })
 
-const sortableKeys = new Set(['severity', 'pri', 'status'])
+const sortableKeys = new Set(['severity', 'pri', 'status', 'createdAt'])
 const statusOptions = Object.entries(bugStatusMap).map(([value, label]) => ({ label, value }))
 const priOptions = [1, 2, 3, 4].map((v) => ({ label: String(v), value: String(v) }))
 
 function renderUser(u: any) {
   if (!u) return '-'
   return u.realname || u.account || '-'
+}
+
+function fmtDate(v: string | null | undefined) {
+  if (!v) return '-'
+  return String(v).slice(0, 10)
 }
 
 function sortOrderOf(key: string) {
@@ -160,6 +165,14 @@ const columns = computed<DataTableColumns<any>>(() => [
   },
   { title: '指派人', key: 'assignee', width: 100, render: (r) => renderUser(r.assignee) },
   { title: '创建人', key: 'creator', width: 100, render: (r) => renderUser(r.creator) },
+  {
+    title: '创建日期',
+    key: 'createdAt',
+    width: 120,
+    sorter: true,
+    sortOrder: sortOrderOf('createdAt'),
+    render: (r) => fmtDate(r.createdAt),
+  },
   { title: '关联需求', key: 'storyId', width: 90, render: (r) => (r.storyId ? `#${r.storyId}` : '-') },
   { title: '附件', key: 'attachCount', width: 70, render: (r) => r.attachCount ?? 0 },
   {
@@ -170,6 +183,9 @@ const columns = computed<DataTableColumns<any>>(() => [
       return h(NSpace, null, {
         default: () => [
           h(NButton, { text: true, type: 'primary', onClick: () => router.push(`/bugs/${row.id}`) }, { default: () => '查看' }),
+          auth.has('bug.edit')
+            ? h(NButton, { text: true, onClick: () => router.push(`/bugs/${row.id}/edit`) }, { default: () => '编辑' })
+            : null,
           auth.has('bug.delete') && row.status === 'active'
             ? h(NButton, { text: true, type: 'error', onClick: () => onDelete(row) }, { default: () => '删除' })
             : null,

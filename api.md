@@ -459,7 +459,7 @@ Query: `keyword?`, page
 ### GET `/bugs`
 
 `bug.list`  
-Query: `productId?`, `projectId?`, `sprintId?`, `storyId?`, `status?`, `severity?`, `pri?`, `assignedTo?`, `keyword?`, `sortBy?`（`severity`|`pri`|`status`）, `sortOrder?`（`asc`|`desc`；与 sortBy 同时传才生效，否则按 id 倒序）  
+Query: `productId?`, `projectId?`, `sprintId?`, `storyId?`, `status?`, `severity?`, `pri?`, `assignedTo?`, `keyword?`, `sortBy?`（`severity`|`pri`|`status`|`createdAt`）, `sortOrder?`（`asc`|`desc`；与 sortBy 同时传才生效，否则按 id 倒序）  
 （页面从产品进时带 productId；不强制，但推荐）
 
 ### POST `/bugs`
@@ -476,7 +476,7 @@ Body: `productId*`, `title*`, `steps?`, `severity?`, `pri?`, `projectId?`, `spri
 ### PUT `/bugs/:id`
 
 `bug.edit`  
-创建后正文锁定；仅当 `steps` 仍为空时可回写一次步骤（新建 flush 用）；其它字段 → 42208
+可改标题、步骤、严重程度、优先级、关联、指派；激活时清 resolution
 
 ### POST `/bugs/:id/resolve`
 
@@ -500,8 +500,7 @@ Body: `{ "resolution": "fixed", "resolveComment"?: string, "assignedTo"?: number
 
 ### POST `/bugs/:id/attachments`
 
-`bug.attach`  
-仅当 steps 仍为空（新建过程）；正文锁定后 → 42208；允许 mp4
+`bug.attach`；允许 mp4
 
 ### GET `/bugs/:id/remarks`
 

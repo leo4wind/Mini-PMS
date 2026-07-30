@@ -40,9 +40,10 @@ type BugVO struct {
 }
 
 var bugListSortCols = map[string]string{
-	"severity": "b.severity",
-	"pri":      "b.pri",
-	"status":   "b.status",
+	"severity":  "b.severity",
+	"pri":       "b.pri",
+	"status":    "b.status",
+	"createdAt": "b.created_at",
 }
 
 func (s *BugService) List(page, pageSize int, productID, projectID, sprintID, storyID uint64, status, severity, pri, assignedTo, keyword, sortBy, sortOrder string) (*PageResult, error) {
@@ -306,19 +307,59 @@ func (s *BugService) Update(id uint64, in UpdateBugInput) (*BugVO, error) {
 	if err := s.db.Where("id = ? AND deleted = 0", id).First(&b).Error; err != nil {
 		return nil, fmt.Errorf("缺陷不存在")
 	}
-
-	// 创建后正文锁定；仅允许「步骤仍为空」时回写一次（新建后 flush 图片/视频）
-	hasLockedChange := in.Title != nil || in.Severity != nil || in.Pri != nil ||
-		in.ClearAssign || in.AssignedTo != nil || in.ProjectID != nil || in.SprintID != nil ||
-		in.StoryID != nil || (in.Status != nil)
-	if hasLockedChange {
-		return nil, fmt.Errorf("缺陷创建后不可编辑正文，请追加备注")
+	updates := map[string]interface{}{}
+	if in.Title != nil {
+		updates["title"] = *in.Title
 	}
 	if in.Steps != nil {
-		if b.Steps != nil && strings.TrimSpace(*b.Steps) != "" {
-			return nil, fmt.Errorf("缺陷创建后不可编辑正文，请追加备注")
+		updates["steps"] = *in.Steps
+	}
+	if in.Severity != nil {
+		updates["severity"] = *in.Severity
+	}
+	if in.Pri != nil {
+		updates["pri"] = *in.Pri
+	}
+	if in.ClearAssign {
+		updates["assigned_to"] = nil
+	} else if in.AssignedTo != nil {
+		updates["assigned_to"] = *in.AssignedTo
+	}
+
+	newProjectID := b.ProjectID
+	newSprintID := b.SprintID
+	newStoryID := b.StoryID
+	if in.ProjectID != nil {
+		newProjectID = in.ProjectID
+	}
+	if in.SprintID != nil {
+		newSprintID = in.SprintID
+	}
+	if in.StoryID != nil {
+		newStoryID = in.StoryID
+	}
+	if in.ProjectID != nil || in.SprintID != nil || in.StoryID != nil {
+		if err := s.validateCascade(b.ProductID, newProjectID, newSprintID, newStoryID); err != nil {
+			return nil, err
 		}
-		if err := s.db.Model(&b).Update("steps", *in.Steps).Error; err != nil {
+		if in.ProjectID != nil {
+			updates["project_id"] = *in.ProjectID
+		}
+		if in.SprintID != nil {
+			updates["sprint_id"] = *in.SprintID
+		}
+		if in.StoryID != nil {
+			updates["story_id"] = *in.StoryID
+		}
+	}
+	if in.Status != nil && *in.Status == "active" {
+		updates["status"] = "active"
+		updates["resolution"] = nil
+		updates["resolved_by"] = nil
+		updates["resolve_comment"] = nil
+	}
+	if len(updates) > 0 {
+		if err := s.db.Model(&b).Updates(updates).Error; err != nil {
 			return nil, err
 		}
 	}

@@ -164,13 +164,13 @@
 |----|------|------|--------|
 | F-BUG-01 | 列表 | 按产品；可按项目/迭代/需求/状态筛 | `bug.list` |
 | F-BUG-02 | 新建 | **product_id 必填**；project/sprint/story 可选但须一致（sprint∈project，project∈product，story∈product） | `bug.create` |
-| F-BUG-03 | 编辑 | **创建后正文不可改**；沟通走备注 | `bug.edit` |
+| F-BUG-03 | 编辑 | title/steps/severity/pri/关联/指派 | `bug.edit` |
 | F-BUG-04 | 解决 | →resolved；resolution 必填；可填解决备注；可改指派（默认创建人）；resolved_by=当前用户 | `bug.resolve` |
 | F-BUG-05 | 关闭 | resolved→closed | `bug.close` |
 | F-BUG-06 | 激活 | resolved/closed→active；须填激活说明（文字/截图，写入备注）；清空 resolution/解决备注 | `bug.edit` |
 | F-BUG-07 | 删除 | 软删；**仅 active 可删（4B）**；级联软删其附件 | `bug.delete` |
-| F-BUG-08 | 上传附件 | 仅新建过程中可挂缺陷级附件；之后走备注 | `bug.attach` |
-| F-BUG-09 | 删除附件 | 正文锁定后缺陷级/备注附件均不可删 | `bug.attach` |
+| F-BUG-08 | 上传附件 | 见 §9；缺陷级与备注均可挂 | `bug.attach` |
+| F-BUG-09 | 删除附件 | 软删；备注附件不可删 | `bug.attach` |
 | F-BUG-10 | 下载/预览附件 | 有缺陷查看权即可；图片与 mp4 可预览 | `bug.list` |
 | F-BUG-11 | 追加备注 | TipTap+图/视频/附件；定稿后不可改删 | `bug.edit` / `bug.attach` |
 

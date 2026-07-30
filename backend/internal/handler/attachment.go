@@ -58,10 +58,6 @@ func (h *AttachmentHandler) UploadBug(c *gin.Context) {
 			response.FailCode(c, 42206, err.Error())
 			return
 		}
-		if strings.Contains(err.Error(), "已锁定") {
-			response.FailCode(c, 42208, err.Error())
-			return
-		}
 		response.BadRequest(c, err.Error())
 		return
 	}

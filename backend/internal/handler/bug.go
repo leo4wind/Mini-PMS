@@ -81,10 +81,6 @@ func (h *BugHandler) Update(c *gin.Context) {
 	}
 	res, err := h.svc.Update(id, in)
 	if err != nil {
-		if strings.Contains(err.Error(), "不可编辑") {
-			response.FailCode(c, 42208, err.Error())
-			return
-		}
 		response.BadRequest(c, err.Error())
 		return
 	}
