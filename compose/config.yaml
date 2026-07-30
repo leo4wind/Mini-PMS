@@ -1,0 +1,19 @@
+server:
+  addr: ":8088"
+  mode: release
+
+log:
+  # info: HTTP only
+  # debug: HTTP + SQL
+  level: info
+
+mysql:
+  dsn: "root:minipms@tcp(mysql:3306)/minipms?charset=utf8mb4&parseTime=True&loc=Local"
+
+jwt:
+  secret: "minipms-docker-change-me"
+  expireHours: 72
+
+upload:
+  dir: "./uploads"
+  maxSizeMB: 100

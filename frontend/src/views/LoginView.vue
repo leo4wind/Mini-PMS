@@ -19,6 +19,7 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useAuthStore } from '@/stores/auth'
+import { stripAppBase } from '@/config'
 
 const account = ref('admin')
 const password = ref('123456')
@@ -33,8 +34,13 @@ async function onSubmit() {
   try {
     await auth.login(account.value, password.value)
     message.success('登录成功')
-    const redirect = (route.query.redirect as string) || '/dashboard'
-    router.replace(redirect)
+    const raw = route.query.redirect
+    const path = typeof raw === 'string' ? stripAppBase(raw) : '/'
+    if (!path || path === '/' || path === '/login') {
+      await router.replace({ name: 'dashboard' })
+    } else {
+      await router.replace(path)
+    }
   } catch (e: any) {
     message.error(e.message || '登录失败')
   } finally {

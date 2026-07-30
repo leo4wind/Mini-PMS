@@ -1,0 +1,17 @@
+# Artifact-only API image: binary must exist at release/minipms-server before build.
+# alpine shares layers with nginx:alpine; avoids a separate debian Hub pull on flaky networks.
+FROM alpine:3.20
+
+RUN apk add --no-cache ca-certificates
+
+WORKDIR /app
+
+COPY release/minipms-server /app/minipms-server
+RUN chmod +x /app/minipms-server \
+  && mkdir -p /app/configs /app/uploads
+
+ENV MINIPMS_CONFIG=/app/configs/config.yaml
+
+EXPOSE 8088
+
+CMD ["/app/minipms-server"]

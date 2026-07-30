@@ -1,10 +1,11 @@
 import { useAuthStore } from '@/stores/auth'
+import { API_BASE } from '@/config'
 
 const ATTACHMENT_PREFIX = 'attachment:'
-const PREVIEW_PATH_RE = /(?:^|\/)api\/v1\/attachments\/(\d+)\/preview(?:\?.*)?$/i
+const PREVIEW_PATH_RE = /(?:^|\/)(?:mini-pms\/)?api\/v1\/attachments\/(\d+)\/preview(?:\?.*)?$/i
 
 export function attachmentPreviewPath(id: number | string) {
-  return `/api/v1/attachments/${id}/preview`
+  return `${API_BASE}/attachments/${id}/preview`
 }
 
 export function parseAttachmentId(src: string): string | null {
@@ -24,7 +25,7 @@ export function withAuthPreviewUrl(src: string): string {
   return auth.token ? `${path}?token=${encodeURIComponent(auth.token)}` : path
 }
 
-/** 持久化到描述：去掉 token，统一成 /api/v1/attachments/:id/preview */
+/** 持久化到描述：去掉 token，统一成 {API_BASE}/attachments/:id/preview */
 export function toStoredPreviewUrl(src: string): string {
   const id = parseAttachmentId(src)
   if (id) return attachmentPreviewPath(id)

@@ -1,8 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { APP_BASE, stripAppBase } from '@/config'
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(APP_BASE),
   routes: [
     {
       path: '/login',
@@ -82,7 +83,12 @@ router.beforeEach(async (to) => {
     if (auth.isLogin && to.name === 'login') return { name: 'dashboard' }
     return true
   }
-  if (!auth.isLogin) return { name: 'login', query: { redirect: to.fullPath } }
+  if (!auth.isLogin) {
+    return {
+      name: 'login',
+      query: { redirect: stripAppBase(to.fullPath) },
+    }
+  }
   if (!auth.user) {
     try {
       await auth.loadMe()

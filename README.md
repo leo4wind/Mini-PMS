@@ -82,7 +82,9 @@ mise exec node -- npm install
 mise exec node -- npm run dev
 ```
 
-浏览器打开 Vite 提示的地址（通常 `http://127.0.0.1:5173`），API 经代理转发到 `:8088`。
+浏览器打开 `http://127.0.0.1:5173/mini-pms/`（`base` 为 `/mini-pms/`），API 经代理转发到 `:8088`。
+
+Docker 全栈部署见 [`compose/README.md`](compose/README.md)，访问地址：**http://127.0.0.1/mini-pms/**。
 
 ## 附件
 

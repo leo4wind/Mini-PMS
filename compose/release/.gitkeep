@@ -1,0 +1,5 @@
+# Place build artifacts here before `docker compose up --build`:
+#   minipms-server   — Linux amd64 binary
+#   web/             — frontend dist (index.html, assets/, ...)
+#
+# Generate with:  ..\pack-release.ps1

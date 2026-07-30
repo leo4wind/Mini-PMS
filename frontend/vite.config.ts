@@ -11,6 +11,7 @@ const apiAgent = new http.Agent({
 })
 
 export default defineConfig({
+  base: '/mini-pms/',
   plugins: [vue()],
   resolve: {
     alias: {
@@ -25,14 +26,15 @@ export default defineConfig({
       host: '127.0.0.1',
     },
     proxy: {
-      '/api': {
+      // 生产同路径：/mini-pms/api → 后端 /api
+      '/mini-pms/api': {
         target: 'http://127.0.0.1:8088',
         changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/mini-pms/, ''),
         agent: apiAgent,
         configure(proxy) {
           proxy.on('error', (err, _req, res) => {
             console.error('[vite proxy]', err.message)
-            // http-proxy 的 res 可能是 ServerResponse 或 Socket
             if (res && 'writeHead' in res && !res.headersSent) {
               res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' })
               res.end(
