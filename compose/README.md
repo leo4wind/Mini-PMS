@@ -6,8 +6,19 @@
 Browser
   http://127.0.0.1/mini-pms/     → Nginx 静态前端
   http://127.0.0.1/mini-pms/api/ → API :8088
-                                 → MySQL :3306（DDL+种子：initdb/01-schema.sql）
+                                 → MySQL（数据在 ./data/mysql）
+                                 → 附件（./data/uploads）
 ```
+
+持久化目录（相对本 `compose/`，可随目录一起拷到服务器 / WSL home）：
+
+| 宿主机路径 | 内容 |
+|------------|------|
+| `data/mysql/` | MySQL 数据文件 |
+| `data/uploads/` | 上传附件 |
+
+WSL 示例：`/home/leo/projects/compose/data/...`  
+Windows 资源管理器：`\\wsl.localhost\Ubuntu\home\leo\projects\compose\data\...`
 
 ## 前置条件
 
@@ -40,12 +51,16 @@ mvp/compose/release/
 
 ```bash
 cd /mnt/e/lcd/code/zentaopms/mvp/compose
+# 或你的部署目录，例如：cd ~/projects/compose
+mkdir -p data/mysql data/uploads
 ls -la initdb/01-schema.sql    # 必须是普通文件（-rw...），不能是目录（drw...）
-docker compose down -v
+docker compose down
 docker compose up -d --build
 ```
 
-`initdb/01-schema.sql`（DDL + admin 种子）只在 **MySQL 数据卷为空时** 导入一次。`-v` 会清空卷以便重新导入。
+`initdb/01-schema.sql`（DDL + admin 种子）只在 **`data/mysql` 为空时** 导入一次。若要强制重装库：先停栈，删掉 `data/mysql` 内容后再 `up`。
+
+`docker compose down` **不会**删 `./data/`；以前用过命名卷的，可用 `docker volume rm compose_minipms-mysql-data compose_minipms-uploads` 清掉旧卷（与新的目录挂载无关）。
 
 验证：
 
@@ -72,15 +87,15 @@ docker compose ps
 docker compose logs -f mysql
 docker compose logs -f api
 docker compose exec mysql mysql -uroot -pminipms -e "USE minipms; SHOW TABLES; SELECT account FROM user;"
-docker compose down          # 停服务，保留数据
-docker compose down -v       # 停服务并清空库（下次 up 会重新跑 schema）
+docker compose down          # 停服务；./data/ 仍保留
+# 清空库/附件：rm -rf data/mysql/* data/uploads/* 后再 up（会重新跑 schema）
 ```
 
 ## 排错
 
 | 现象 | 处理 |
 |------|------|
-| `user` 表不存在 / `input source is a directory` | schema 被挂成了目录。确认 `initdb/01-schema.sql` 是文件后 `down -v && up -d --build` |
+| `user` 表不存在 / `input source is a directory` | schema 被挂成了目录。确认 `initdb/01-schema.sql` 是文件；若 `data/mysql` 已有空库，清空该目录后再 `up` |
 | 路径不对 | 必须用仓库 `mvp/compose`；`~/projects/deploy/compose` 这类拷贝容易缺 `initdb` |
 | `mise ... not trusted` | `mise trust /mnt/e/lcd/code/zentaopms/mvp`（与 Docker 无关） |
 | 拉镜像失败 | Docker Desktop → Docker Engine 加 `registry-mirrors` |

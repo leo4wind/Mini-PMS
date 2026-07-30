@@ -3,12 +3,18 @@
 #   release/minipms-server
 #   release/web/          (frontend dist contents)
 #
+# Persistent data (bind mounts next to this compose file):
+#   ./data/mysql    → MySQL datadir
+#   ./data/uploads  → attachment files
+# On WSL e.g. /home/leo/projects/compose/data/...
+# Windows Explorer: \\wsl.localhost\Ubuntu\home\leo\projects\compose\data\...
+#
 # Usage:
+#   mkdir -p data/mysql data/uploads
 #   docker compose up -d --build
 #
-# First-time DB init (DDL + seed in ./initdb/01-schema.sql) only runs on an empty MySQL volume.
-# To re-import schema/seed:
-#   docker compose down -v && docker compose up -d --build
+# First-time DB init (./initdb/01-schema.sql) only runs when ./data/mysql is empty.
+# To re-import schema/seed: stop stack, delete ./data/mysql contents, then up again.
 
 services:
   mysql:
@@ -22,8 +28,8 @@ services:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
     volumes:
-      - minipms-mysql-data:/var/lib/mysql
-      # Must be a real file. Relative ../schema.sql often becomes an empty dir under Docker Desktop/WSL.
+      - ./data/mysql:/var/lib/mysql
+      # Must be a real file (not a directory created by a bad bind).
       - ./initdb/01-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pminipms"]
@@ -44,7 +50,7 @@ services:
       MINIPMS_CONFIG: /app/configs/config.yaml
     volumes:
       - ./config.yaml:/app/configs/config.yaml:ro
-      - minipms-uploads:/app/uploads
+      - ./data/uploads:/app/uploads
     depends_on:
       mysql:
         condition: service_healthy
@@ -65,10 +71,6 @@ services:
       - api
     networks:
       - minipms
-
-volumes:
-  minipms-mysql-data:
-  minipms-uploads:
 
 networks:
   minipms:

@@ -1,0 +1,3 @@
+# Runtime persistence (MySQL + uploads). Created on the host next to compose.
+*
+!.gitignore
